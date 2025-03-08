@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const RAPIDAPI_KEY = '2818a09a0cmsh1273edb1e2a65efp120488jsnf5072d8d3962';
+const RAPIDAPI_KEY = 'xxx';
 const API_URL = 'https://google-translate113.p.rapidapi.com/api/v1/translator/text';
 
 export const translateText = async (text, targetLang = 'en', sourceLang = 'auto') => {
