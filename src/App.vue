@@ -14,23 +14,42 @@
         :selectedKeys="[selectedMenuKey]"
         @menuItemClick="onClickMenuItem"
       >
-        <a-menu-item key="0_1">
+        <!-- AI助手 - 所有用户可见 -->
+        <a-menu-item key="0_1" v-if="filteredMenuItems.includes('0_1')">
           <IconHome />
           AI助手 / AI Assistant
         </a-menu-item>
-        <a-menu-item key="0_2">
+        
+        <!-- 翻译工具 - 所有用户可见 -->
+        <a-menu-item key="0_2" v-if="filteredMenuItems.includes('0_2')">
           <IconEdit />
           翻译工具 / Translator
         </a-menu-item>
-        <a-sub-menu key="1">
+        
+        <!-- 本地化管理 - 根据权限显示子菜单 -->
+        <a-sub-menu key="1" v-if="filteredMenuItems.some(item => item.startsWith('1_'))">
           <template #title>
             <span><IconApps />本地化管理 / L10n Management</span>
           </template>
-          <a-menu-item key="1_1">请求管理 / Request Management</a-menu-item>
-          <a-menu-item key="1_2">项目管理 / Project Management</a-menu-item>
-          <a-menu-item key="1_3">财务管理 / Financial Management</a-menu-item>
+          
+          <!-- 请求管理 - 所有登录用户可见 -->
+          <a-menu-item key="1_1" v-if="filteredMenuItems.includes('1_1')">
+            请求管理 / Request Management
+          </a-menu-item>
+          
+          <!-- 项目管理 - LM和BO可见 -->
+          <a-menu-item key="1_2" v-if="filteredMenuItems.includes('1_2')">
+            项目管理 / Project Management
+          </a-menu-item>
+          
+          <!-- 财务管理 - 仅LM可见 -->
+          <a-menu-item key="1_3" v-if="filteredMenuItems.includes('1_3')">
+            财务管理 / Financial Management
+          </a-menu-item>
         </a-sub-menu>
-        <a-menu-item key="2">
+        
+        <!-- 系统设置 - 仅LM可见 -->
+        <a-menu-item key="2" v-if="filteredMenuItems.includes('2')">
           <IconSettings />
           系统设置 / Settings
         </a-menu-item>
@@ -43,23 +62,42 @@
           :selectedKeys="[selectedMenuKey]"
           mode='horizontal'
         >
-          <a-menu-item key="0_1" @click="onClickMenuItem('0_1')">
+          <!-- AI助手 - 所有用户可见 -->
+          <a-menu-item key="0_1" @click="onClickMenuItem('0_1')" v-if="filteredMenuItems.includes('0_1')">
             <IconHome />
             AI助手 / AI Assistant
           </a-menu-item>
-          <a-menu-item key="0_2" @click="onClickMenuItem('0_2')">
+          
+          <!-- 翻译工具 - 所有用户可见 -->
+          <a-menu-item key="0_2" @click="onClickMenuItem('0_2')" v-if="filteredMenuItems.includes('0_2')">
             <IconEdit />
             翻译工具 / Translator
           </a-menu-item>
-          <a-sub-menu key="1">
+          
+          <!-- 本地化管理 - 根据权限显示子菜单 -->
+          <a-sub-menu key="1" v-if="filteredMenuItems.some(item => item.startsWith('1_'))">
             <template #title>
               <span><IconApps />本地化管理 / L10n Management</span>
             </template>
-            <a-menu-item key="1_1" @click="onClickMenuItem('1_1')">请求管理 / Request Management</a-menu-item>
-            <a-menu-item key="1_2" @click="onClickMenuItem('1_2')">项目管理 / Project Management</a-menu-item>
-            <a-menu-item key="1_3" @click="onClickMenuItem('1_3')">财务管理 / Financial Management</a-menu-item>
+            
+            <!-- 请求管理 - 所有登录用户可见 -->
+            <a-menu-item key="1_1" @click="onClickMenuItem('1_1')" v-if="filteredMenuItems.includes('1_1')">
+              请求管理 / Request Management
+            </a-menu-item>
+            
+            <!-- 项目管理 - LM和BO可见 -->
+            <a-menu-item key="1_2" @click="onClickMenuItem('1_2')" v-if="filteredMenuItems.includes('1_2')">
+              项目管理 / Project Management
+            </a-menu-item>
+            
+            <!-- 财务管理 - 仅LM可见 -->
+            <a-menu-item key="1_3" @click="onClickMenuItem('1_3')" v-if="filteredMenuItems.includes('1_3')">
+              财务管理 / Financial Management
+            </a-menu-item>
           </a-sub-menu>
-          <a-menu-item key="2" @click="onClickMenuItem('2')">
+          
+          <!-- 系统设置 - 仅LM可见 -->
+          <a-menu-item key="2" @click="onClickMenuItem('2')" v-if="filteredMenuItems.includes('2')">
             <IconSettings />
             系统设置 / Settings
           </a-menu-item>
@@ -68,9 +106,23 @@
           <a-avatar @click="toggleLogin" v-if="!isLoggedIn">
             登录 / Login
           </a-avatar>
-          <a-avatar v-else @click="toggleLogin">
-            {{ userName.charAt(0).toUpperCase() }}
-          </a-avatar>
+          <a-dropdown v-else trigger="click">
+            <a-avatar @click="toggleLogin">
+              {{ userName.charAt(0).toUpperCase() }}
+            </a-avatar>
+            <template #content>
+              <a-doption>
+                <div class="user-dropdown-item">
+                  <span>{{ userName }}</span>
+                  <span class="user-role">{{ userRole === 'LM' ? '本地化经理 / LM' : '业务负责人 / BO' }}</span>
+                </div>
+              </a-doption>
+              <a-doption @click="toggleLogin">
+                <IconExport />
+                退出登录 / Logout
+              </a-doption>
+            </template>
+          </a-dropdown>
         </div>
       </a-layout-header>
       <a-layout style="padding: 0 24px">
@@ -111,12 +163,12 @@
           
           <!-- 项目管理页面 -->
           <div v-if="currentPage === 'project_management'">
-            <ProjectManagement />
+            <ProjectManagement :userRole="userRole" :userId="userId" />
           </div>
           
           <!-- 财务管理页面 -->
           <div v-if="currentPage === 'financial_management'">
-            <FinancialManagement />
+            <FinancialManagement :userRole="userRole" :userId="userId" />
           </div>
           
           <!-- 系统设置页面 -->
@@ -135,7 +187,7 @@
     </a-layout>
 
     <!-- 登录弹窗 -->
-    <a-modal v-model:visible="visible" title="登录 / Login" @cancel="handleCancel" @before-ok="handleBeforeOk">
+    <a-modal v-model:visible="visible" title="登录 / Login" @cancel="handleCancel" @ok="handleBeforeOk" :ok-loading="loginLoading">
       <a-form :model="form">
         <a-form-item field="username" label="用户名 / Username">
           <a-input v-model="form.username" />
@@ -144,6 +196,12 @@
           <a-input type="password" v-model="form.password" />
         </a-form-item>
       </a-form>
+      <template #footer>
+        <a-space>
+          <a-button @click="handleCancel">取消 / Cancel</a-button>
+          <a-button type="primary" @click="handleBeforeOk" :loading="loginLoading">登录 / Login</a-button>
+        </a-space>
+      </template>
     </a-modal>
 
     <!-- 返回顶部按钮 -->
@@ -152,7 +210,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, reactive } from 'vue';
+import { defineComponent, ref, reactive, computed } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import {
   IconHome,
@@ -160,6 +218,7 @@ import {
   IconSettings,
   IconApps,
   IconEdit,
+  IconExport,
 } from '@arco-design/web-vue/es/icon';
 import { Avatar } from '@arco-design/web-vue';
 import TranslationForm from './components/TranslationForm.vue'; 
@@ -175,6 +234,7 @@ export default defineComponent({
     IconSettings,
     IconApps,
     IconEdit,
+    IconExport,
     Avatar,
     TranslationForm,
     RequestForm,
@@ -184,7 +244,9 @@ export default defineComponent({
   setup() {
     const collapsed = ref(false);
     const isLoggedIn = ref(false);
-    const userName = ref('Yizhuo Xiang');
+    const userName = ref('');
+    const userRole = ref('');
+    const userId = ref(null);
     const visible = ref(false);
     const form = reactive({
       username: '',
@@ -207,6 +269,47 @@ export default defineComponent({
       { title: 'Task - LQA Report Finalization', dataIndex: 'taskLQAReportFinalization', key: 'taskLQAReportFinalization' },
     ]);
     const projectData = ref([]);
+    const loginLoading = ref(false);
+
+    // 检查用户是否有权限访问某个页面
+    const hasPermission = (page) => {
+      if (!isLoggedIn.value) return false;
+      
+      // 所有用户都可以访问的页面
+      const commonPages = ['menu1', 'translator', 'request_management'];
+      if (commonPages.includes(page)) return true;
+      
+      // LM可以访问所有页面
+      if (userRole.value === 'LM') return true;
+      
+      // BO只能访问特定页面
+      if (userRole.value === 'BO') {
+        const boPages = ['menu1', 'translator', 'request_management', 'project_management'];
+        return boPages.includes(page);
+      }
+      
+      return false;
+    };
+
+    // 根据用户角色过滤菜单项
+    const filteredMenuItems = computed(() => {
+      if (!isLoggedIn.value) {
+        // 未登录用户只能看到AI助手和翻译工具
+        return ['0_1', '0_2'];
+      }
+      
+      if (userRole.value === 'LM') {
+        // LM可以看到所有菜单项
+        return ['0_1', '0_2', '1_1', '1_2', '1_3', '2'];
+      }
+      
+      if (userRole.value === 'BO') {
+        // BO只能看到AI助手、翻译工具、请求管理和项目管理
+        return ['0_1', '0_2', '1_1', '1_2'];
+      }
+      
+      return [];
+    });
 
     const onCollapse = (val, type) => {
       const content = type === 'responsive' ? '触发响应式收缩' : '点击触发收缩';
@@ -217,11 +320,75 @@ export default defineComponent({
       collapsed.value = val;
     };
 
+    // 检查本地存储的令牌并自动登录
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        console.log('找到本地存储的令牌，尝试自动登录');
+        try {
+          // 设置默认请求头
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          console.log('已设置Authorization头:', `Bearer ${token}`);
+          
+          // 获取当前用户信息
+          console.log('发送请求到 /api/users/current');
+          const response = await axios.get('http://localhost:5000/api/users/current');
+          console.log('获取用户信息成功:', response.data);
+          
+          // 更新用户信息
+          userId.value = response.data.id;
+          userName.value = response.data.name;
+          userRole.value = response.data.role;
+          isLoggedIn.value = true;
+          
+          console.log('用户信息已更新:', {
+            userId: userId.value,
+            userName: userName.value,
+            userRole: userRole.value,
+            isLoggedIn: isLoggedIn.value
+          });
+          
+          Message.success({
+            content: '自动登录成功 / Auto login successful',
+            duration: 2000,
+          });
+        } catch (error) {
+          console.error('自动登录失败:', error);
+          if (error.response) {
+            console.error('错误响应:', error.response.data);
+            console.error('状态码:', error.response.status);
+          }
+          // 清除无效令牌
+          localStorage.removeItem('token');
+          axios.defaults.headers.common['Authorization'] = '';
+          console.log('已清除无效令牌和Authorization头');
+        }
+      } else {
+        console.log('未找到本地存储的令牌，跳过自动登录');
+      }
+    };
+
+    // 页面加载时检查认证状态
+    checkAuth();
+
     const toggleLogin = () => {
       if (!isLoggedIn.value) {
         visible.value = true;
       } else {
-        isLoggedIn.value = false; 
+        // 登出
+        isLoggedIn.value = false;
+        userName.value = '';
+        userRole.value = '';
+        userId.value = null;
+        
+        // 清除令牌
+        localStorage.removeItem('token');
+        axios.defaults.headers.common['Authorization'] = '';
+        
+        // 重定向到首页
+        currentPage.value = 'menu1';
+        selectedMenuKey.value = '0_1';
+        
         Message.info({
           content: '已退出登录 / Logged out',
           duration: 2000,
@@ -229,49 +396,118 @@ export default defineComponent({
       }
     };
 
-    const handleBeforeOk = (done) => {
-      console.log(form);
-      isLoggedIn.value = true;
-      visible.value = false;
-      Message.success({
-        content: '登录成功 / Login successful',
-        duration: 2000,
-      });
-      done();
+    const handleBeforeOk = async () => {
+      // 不使用Modal的before-ok回调来处理异步操作
+      // 而是直接在函数中处理登录逻辑
+      if (!form.username || !form.password) {
+        Message.error('请输入用户名和密码 / Please enter username and password');
+        return;
+      }
+      
+      loginLoading.value = true;
+      
+      try {
+        console.log('尝试登录，用户名:', form.username);
+        // 调用登录API
+        const response = await axios.post('http://localhost:5000/api/login', {
+          username: form.username,
+          password: form.password
+        });
+        
+        console.log('登录成功，响应数据:', response.data);
+        
+        // 保存令牌到本地存储
+        const token = response.data.token;
+        localStorage.setItem('token', token);
+        
+        // 设置默认请求头
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        console.log('已设置Authorization头:', `Bearer ${token}`);
+        
+        // 更新用户信息
+        const user = response.data.user;
+        userId.value = user.id;
+        userName.value = user.name;
+        userRole.value = user.role;
+        isLoggedIn.value = true;
+        
+        console.log('用户信息已更新:', {
+          userId: userId.value,
+          userName: userName.value,
+          userRole: userRole.value,
+          isLoggedIn: isLoggedIn.value
+        });
+        
+        // 清空表单并关闭弹窗
+        form.username = '';
+        form.password = '';
+        visible.value = false;
+        
+        Message.success({
+          content: '登录成功 / Login successful',
+          duration: 2000,
+        });
+      } catch (error) {
+        console.error('登录失败:', error);
+        if (error.response) {
+          console.error('错误响应:', error.response.data);
+          console.error('状态码:', error.response.status);
+        }
+        
+        let errorMsg = '登录失败 / Login failed';
+        
+        if (error.response && error.response.data && error.response.data.error) {
+          errorMsg = error.response.data.error;
+        }
+        
+        Message.error(errorMsg);
+      } finally {
+        loginLoading.value = false;
+      }
     };
 
     const handleCancel = () => {
       visible.value = false;
+      form.username = '';
+      form.password = '';
     };
 
     const onClickMenuItem = (key) => {
       selectedMenuKey.value = key; // 更新选中的菜单项
       
       // 根据菜单项切换页面
+      let targetPage = '';
+      
       switch (key) {
         case '0_1':
-          currentPage.value = 'menu1'; // AI助手
+          targetPage = 'menu1'; // AI助手
           break;
         case '0_2':
-          currentPage.value = 'translator'; // 翻译工具
+          targetPage = 'translator'; // 翻译工具
           break;
         case '1_1':
-          currentPage.value = 'request_management'; // 请求管理
+          targetPage = 'request_management'; // 请求管理
           break;
         case '1_2':
-          currentPage.value = 'project_management'; // 项目管理
+          targetPage = 'project_management'; // 项目管理
           break;
         case '1_3':
-          currentPage.value = 'financial_management'; // 财务管理
+          targetPage = 'financial_management'; // 财务管理
           break;
         case '2':
-          currentPage.value = 'settings'; // 系统设置
+          targetPage = 'settings'; // 系统设置
           break;
         default:
-          currentPage.value = 'menu1';
+          targetPage = 'menu1';
       }
       
-      Message.info({ content: `You select ${key}`, showIcon: true });
+      // 检查权限
+      if (hasPermission(targetPage)) {
+        currentPage.value = targetPage;
+        Message.info({ content: `You select ${key}`, showIcon: true });
+      } else {
+        Message.error('您没有权限访问此页面 / You do not have permission to access this page');
+      }
     };
     
     const getBreadcrumbText = () => {
@@ -357,7 +593,10 @@ export default defineComponent({
       }
     };
 
-    fetchProjectData(); // 在组件加载时获取数据
+    // 只有在用户登录后才获取项目数据
+    if (isLoggedIn.value) {
+      fetchProjectData();
+    }
 
     return {
       collapsed,
@@ -365,6 +604,7 @@ export default defineComponent({
       toggleLogin,
       isLoggedIn,
       userName,
+      userRole,
       visible,
       form,
       handleBeforeOk,
@@ -380,6 +620,9 @@ export default defineComponent({
       projectData,
       fetchProjectData,
       getBreadcrumbText,
+      filteredMenuItems,
+      hasPermission,
+      loginLoading,
     };
   }
 });

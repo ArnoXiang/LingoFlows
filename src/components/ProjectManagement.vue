@@ -93,13 +93,13 @@
           <a-button type="text" size="small" @click="viewProject(record)">
             查看 / View
           </a-button>
-          <a-button type="text" size="small" @click="editProject(record)">
+          <a-button type="text" size="small" @click="editProject(record)" v-if="canPerformAction(record)">
             编辑 / Edit
           </a-button>
-          <a-button type="text" size="small" @click="sendEmail(record)">
+          <a-button type="text" size="small" @click="sendEmail(record)" v-if="canPerformAction(record)">
             发送邮件 / Send Email
           </a-button>
-          <a-button type="text" size="small" @click="uploadFiles(record)">
+          <a-button type="text" size="small" @click="uploadFiles(record)" v-if="canPerformAction(record)">
             上传文件 / Upload Files
           </a-button>
         </a-space>
@@ -164,7 +164,7 @@
           </a-descriptions-item>
         </a-descriptions>
         
-        <div class="task-management" style="margin-top: 24px;">
+        <div class="task-management" style="margin-top: 24px;" v-if="canPerformAction(currentProject)">
           <h3>任务管理 / Task Management</h3>
           <a-collapse>
             <a-collapse-item header="翻译任务 / Translation Task" key="1">
@@ -216,7 +216,7 @@
             <a-button @click="drawerVisible = false">
               取消 / Cancel
             </a-button>
-            <a-button type="primary" @click="saveProject">
+            <a-button type="primary" @click="saveProject" v-if="canPerformAction(currentProject)">
               保存 / Save
             </a-button>
           </a-space>
@@ -303,10 +303,22 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import axios from 'axios';
 import { languages } from '../utils/languages';
+
+// 接收用户角色和ID作为props
+const props = defineProps({
+  userRole: {
+    type: String,
+    default: ''
+  },
+  userId: {
+    type: Number,
+    default: null
+  }
+});
 
 // 表格列定义
 const columns = [
@@ -433,19 +445,46 @@ const filteredProjects = computed(() => {
   return result;
 });
 
+// 检查用户是否有权限执行操作
+const canPerformAction = (project) => {
+  if (props.userRole === 'LM') {
+    return true; // LM可以执行所有操作
+  }
+  
+  // BO只能操作自己的项目
+  return project.created_by === props.userId;
+};
+
 // 生命周期钩子
 onMounted(() => {
   fetchProjects();
 });
 
+// 当用户ID或角色变化时重新获取项目
+watch([() => props.userId, () => props.userRole], () => {
+  fetchProjects();
+});
+
 // 方法
 const fetchProjects = async () => {
+  if (!props.userId) {
+    console.log('未获取项目数据：用户ID为空');
+    return; // 如果没有用户ID，不获取数据
+  }
+  
+  console.log(`开始获取项目数据，用户ID: ${props.userId}, 用户角色: ${props.userRole}`);
   loading.value = true;
   try {
+    console.log('发送请求到 /api/projects');
     const response = await axios.get('http://localhost:5000/api/projects');
+    console.log('获取项目数据成功:', response.data);
     projects.value = response.data;
   } catch (error) {
-    console.error('Error fetching projects:', error);
+    console.error('获取项目数据失败:', error);
+    if (error.response) {
+      console.error('错误响应:', error.response.data);
+      console.error('状态码:', error.response.status);
+    }
     Message.error('获取项目列表失败 / Failed to fetch projects');
   } finally {
     loading.value = false;
@@ -528,6 +567,11 @@ const formatDate = (dateString) => {
 };
 
 const viewProject = (project) => {
+  if (!canPerformAction(project)) {
+    Message.error('您没有权限查看此项目 / You do not have permission to view this project');
+    return;
+  }
+  
   currentProject.value = {
     ...project,
     tasks: {
@@ -550,6 +594,11 @@ const viewProject = (project) => {
 };
 
 const editProject = (project) => {
+  if (!canPerformAction(project)) {
+    Message.error('您没有权限编辑此项目 / You do not have permission to edit this project');
+    return;
+  }
+  
   currentProject.value = {
     ...project,
     tasks: {
@@ -573,6 +622,11 @@ const editProject = (project) => {
 
 const saveProject = async () => {
   if (!currentProject.value) return;
+  
+  if (!canPerformAction(currentProject.value)) {
+    Message.error('您没有权限更新此项目 / You do not have permission to update this project');
+    return;
+  }
   
   try {
     // 准备更新的项目数据
@@ -599,6 +653,11 @@ const saveProject = async () => {
 };
 
 const sendEmail = (project) => {
+  if (!canPerformAction(project)) {
+    Message.error('您没有权限发送此项目的邮件 / You do not have permission to send emails for this project');
+    return;
+  }
+  
   currentProject.value = project;
   emailForm.to = '';
   emailForm.cc = '';
@@ -616,6 +675,11 @@ const handleEmailAttachmentChange = (fileList) => {
 const sendProjectEmail = async () => {
   if (!emailForm.to || !emailForm.subject || !emailForm.content) {
     Message.error('请填写必填字段 / Please fill in all required fields');
+    return;
+  }
+  
+  if (!canPerformAction(currentProject.value)) {
+    Message.error('您没有权限发送此项目的邮件 / You do not have permission to send emails for this project');
     return;
   }
   
@@ -650,6 +714,11 @@ const sendProjectEmail = async () => {
 };
 
 const uploadFiles = (project) => {
+  if (!canPerformAction(project)) {
+    Message.error('您没有权限上传此项目的文件 / You do not have permission to upload files for this project');
+    return;
+  }
+  
   currentProject.value = project;
   uploadForm.fileType = 'source';
   uploadForm.notes = '';
@@ -665,6 +734,11 @@ const handleUploadFilesChange = (fileList) => {
 const submitUploadFiles = async () => {
   if (!uploadForm.fileType || projectFiles.value.length === 0) {
     Message.error('请选择文件类型和上传文件 / Please select file type and upload files');
+    return;
+  }
+  
+  if (!canPerformAction(currentProject.value)) {
+    Message.error('您没有权限上传此项目的文件 / You do not have permission to upload files for this project');
     return;
   }
   

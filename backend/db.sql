@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS projectname (
   taskTranslation ENUM('not_started', 'in_progress', 'completed') NOT NULL DEFAULT 'not_started',
   taskLQA ENUM('not_started', 'in_progress', 'completed') NOT NULL DEFAULT 'not_started',
   taskTranslationUpdate ENUM('not_started', 'in_progress', 'completed') NOT NULL DEFAULT 'not_started',
-  taskLQAReportFinalization ENUM('not_started', 'in_progress', 'completed') NOT NULL DEFAULT 'not_started'
+  taskLQAReportFinalization ENUM('not_started', 'in_progress', 'completed') NOT NULL DEFAULT 'not_started',
+  created_by INT
 );
 
 -- 请求表
@@ -34,7 +35,8 @@ CREATE TABLE IF NOT EXISTS requests (
   files TEXT,
   status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
   createTime DATETIME NOT NULL,
-  updateTime DATETIME
+  updateTime DATETIME,
+  created_by INT
 );
 
 -- 项目文件表
@@ -45,6 +47,7 @@ CREATE TABLE IF NOT EXISTS project_files (
   notes TEXT,
   files TEXT NOT NULL,
   uploadTime DATETIME NOT NULL,
+  created_by INT,
   FOREIGN KEY (projectId) REFERENCES projectname(id) ON DELETE CASCADE
 );
 
@@ -58,6 +61,7 @@ CREATE TABLE IF NOT EXISTS emails (
   content TEXT NOT NULL,
   attachments TEXT,
   sendTime DATETIME NOT NULL,
+  sent_by INT,
   FOREIGN KEY (projectId) REFERENCES projectname(id) ON DELETE CASCADE
 );
 
@@ -73,19 +77,19 @@ CREATE TABLE IF NOT EXISTS quotes (
   status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
   notes TEXT,
   createTime DATETIME NOT NULL,
+  created_by INT,
   FOREIGN KEY (projectId) REFERENCES projectname(id) ON DELETE CASCADE
 );
 
--- 用户表
+-- 用户表 (更新为与app.py中一致的结构)
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL,
-  fullName VARCHAR(100) NOT NULL,
-  email VARCHAR(100) NOT NULL UNIQUE,
-  role ENUM('admin', 'project_manager', 'business_owner', 'financial_team') NOT NULL,
-  createTime DATETIME NOT NULL,
-  lastLoginTime DATETIME
+  password VARCHAR(100) NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  role ENUM('LM', 'BO') NOT NULL,
+  email VARCHAR(100),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 聊天记录表
@@ -103,9 +107,9 @@ VALUES
 ('营销材料本地化', 'pending', '营销材料翻译请求', 'Yizhuo Xiang', NOW(), 'en', 'fr,de,es', 3000, DATE_ADD(CURDATE(), INTERVAL 7 DAY), 'not_started', 'not_started', 'not_started', 'not_started'),
 ('软件界面翻译', 'completed', '软件界面翻译请求', 'Yizhuo Xiang', NOW(), 'en', 'zh,ru', 2000, DATE_ADD(CURDATE(), INTERVAL -7 DAY), 'completed', 'completed', 'completed', 'completed');
 
-INSERT INTO users (username, password, fullName, email, role, createTime)
-VALUES
-('admin', 'password123', 'Admin User', 'admin@example.com', 'admin', NOW()),
-('pm_user', 'password123', 'Yizhuo Xiang', 'pm@example.com', 'project_manager', NOW()),
-('bo_user', 'password123', 'Business Owner', 'bo@example.com', 'business_owner', NOW()),
-('finance_user', 'password123', 'Finance User', 'finance@example.com', 'financial_team', NOW());
+-- 更新为与app.py中一致的默认用户
+INSERT INTO users (username, password, name, role, email)
+VALUES 
+('admin', 'admin123', 'Admin User', 'LM', 'admin@example.com'),
+('bo1', 'bo123', 'Business Owner 1', 'BO', 'bo1@example.com'),
+('bo2', 'bo123', 'Business Owner 2', 'BO', 'bo2@example.com');

@@ -3,7 +3,8 @@ from flask_cors import CORS
 import pymysql
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
+import jwt
 from src.api.chatGPT import get_chat_response
 import re
 
@@ -14,6 +15,10 @@ UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# JWT配置
+app.config['SECRET_KEY'] = 'lingoflows_secret_key'
+app.config['JWT_EXPIRATION_DELTA'] = timedelta(days=1)
 
 CORS(app)
 
@@ -26,26 +31,128 @@ db = pymysql.connect(
     cursorclass=pymysql.cursors.DictCursor
 )
 
+# 用户认证相关接口
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({"error": "Username and password are required"}), 400
+    
+    with db.cursor() as cur:
+        # 查询用户
+        cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+        user = cur.fetchone()
+        
+        if not user or user['password'] != password:  # 实际应用中应使用密码哈希
+            return jsonify({"error": "Invalid username or password"}), 401
+        
+        # 生成JWT令牌
+        payload = {
+            'user_id': user['id'],
+            'username': user['username'],
+            'role': user['role'],
+            'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
+        }
+        token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
+        
+        return jsonify({
+            "token": token,
+            "user": {
+                "id": user['id'],
+                "username": user['username'],
+                "role": user['role'],
+                "name": user['name']
+            }
+        })
+
+@app.route('/api/users/current', methods=['GET'])
+def get_current_user():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"error": "Authorization header is missing"}), 401
+    
+    try:
+        token = auth_header.split(" ")[1]
+        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        
+        with db.cursor() as cur:
+            cur.execute("SELECT id, username, role, name FROM users WHERE id = %s", (payload['user_id'],))
+            user = cur.fetchone()
+            
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+            
+            return jsonify(user)
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except (jwt.InvalidTokenError, IndexError):
+        return jsonify({"error": "Invalid token"}), 401
+
+# 验证令牌的装饰器
+def token_required(f):
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({"error": "Authorization header is missing"}), 401
+        
+        try:
+            token = auth_header.split(" ")[1]
+            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            request.user = payload
+            return f(*args, **kwargs)
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token has expired"}), 401
+        except (jwt.InvalidTokenError, IndexError):
+            return jsonify({"error": "Invalid token"}), 401
+    
+    decorated.__name__ = f.__name__
+    return decorated
+
 # 项目相关接口
 @app.route('/api/projects', methods=['GET'])
+@token_required
 def get_projects():
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id')
+    
     with db.cursor() as cur:
-        cur.execute("SELECT * FROM projectname")
+        if user_role == 'LM':
+            # LM可以查看所有项目
+            cur.execute("SELECT * FROM projectname")
+        else:
+            # BO只能查看自己提交的项目
+            cur.execute("SELECT * FROM projectname WHERE created_by = %s", (user_id,))
+        
         projects = cur.fetchall()
     return jsonify(projects)
 
 @app.route('/api/projects/<int:project_id>', methods=['GET'])
+@token_required
 def get_project(project_id):
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id')
+    
     with db.cursor() as cur:
-        cur.execute("SELECT * FROM projectname WHERE id = %s", (project_id,))
+        if user_role == 'LM':
+            # LM可以查看任何项目
+            cur.execute("SELECT * FROM projectname WHERE id = %s", (project_id,))
+        else:
+            # BO只能查看自己的项目
+            cur.execute("SELECT * FROM projectname WHERE id = %s AND created_by = %s", (project_id, user_id))
+        
         project = cur.fetchone()
         if not project:
-            return jsonify({"error": "Project not found"}), 404
+            return jsonify({"error": "Project not found or you don't have permission"}), 404
     return jsonify(project)
 
 @app.route('/api/projects', methods=['POST'])
+@token_required
 def create_project():
     data = request.json
+    user_id = request.user.get('user_id')
     
     # 从请求中提取项目数据
     project_name = data.get('projectName')
@@ -66,13 +173,13 @@ def create_project():
         INSERT INTO projectname (
             projectName, projectStatus, requestName, projectManager, createTime,
             sourceLanguage, targetLanguages, wordCount, expectedDeliveryDate, additionalRequirements,
-            taskTranslation, taskLQA, taskTranslationUpdate, taskLQAReportFinalization
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            taskTranslation, taskLQA, taskTranslationUpdate, taskLQAReportFinalization, created_by
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cur.execute(sql, (
             project_name, project_status, request_name, project_manager, datetime.now(),
             source_language, target_languages, word_count, expected_delivery_date, additional_requirements,
-            'not_started', 'not_started', 'not_started', 'not_started'
+            'not_started', 'not_started', 'not_started', 'not_started', user_id
         ))
         db.commit()
         project_id = cur.lastrowid
@@ -80,8 +187,24 @@ def create_project():
     return jsonify({"id": project_id, "message": "Project created successfully"}), 201
 
 @app.route('/api/projects/<int:project_id>', methods=['PUT'])
+@token_required
 def update_project(project_id):
     data = request.json
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id')
+    
+    # 检查用户是否有权限更新此项目
+    with db.cursor() as cur:
+        if user_role == 'LM':
+            # LM可以更新任何项目
+            cur.execute("SELECT id FROM projectname WHERE id = %s", (project_id,))
+        else:
+            # BO只能更新自己的项目
+            cur.execute("SELECT id FROM projectname WHERE id = %s AND created_by = %s", (project_id, user_id))
+        
+        project = cur.fetchone()
+        if not project:
+            return jsonify({"error": "Project not found or you don't have permission"}), 404
     
     # 从请求中提取项目数据
     update_fields = []
@@ -138,7 +261,15 @@ def update_project(project_id):
     return jsonify({"message": "Project updated successfully"})
 
 @app.route('/api/projects/<int:project_id>', methods=['DELETE'])
+@token_required
 def delete_project(project_id):
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id')
+    
+    # 只有LM可以删除项目
+    if user_role != 'LM':
+        return jsonify({"error": "Only LM can delete projects"}), 403
+    
     with db.cursor() as cur:
         cur.execute("DELETE FROM projectname WHERE id = %s", (project_id,))
         db.commit()
@@ -149,15 +280,27 @@ def delete_project(project_id):
 
 # 请求相关接口
 @app.route('/api/requests', methods=['GET'])
+@token_required
 def get_requests():
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id')
+    
     with db.cursor() as cur:
-        cur.execute("SELECT * FROM requests")
+        if user_role == 'LM':
+            # LM可以查看所有请求
+            cur.execute("SELECT * FROM requests")
+        else:
+            # BO只能查看自己的请求
+            cur.execute("SELECT * FROM requests WHERE created_by = %s", (user_id,))
+        
         requests = cur.fetchall()
     return jsonify(requests)
 
 @app.route('/api/requests', methods=['POST'])
+@token_required
 def create_request():
     data = request.json
+    user_id = request.user.get('user_id')
     
     # 从请求中提取数据
     request_name = data.get('requestName')
@@ -174,12 +317,12 @@ def create_request():
         sql = """
         INSERT INTO requests (
             requestName, requestBackground, sourceLanguage, targetLanguages,
-            wordCount, additionalRequirements, expectedDeliveryDate, files, status, createTime
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            wordCount, additionalRequirements, expectedDeliveryDate, files, status, createTime, created_by
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cur.execute(sql, (
             request_name, request_background, source_language, target_languages,
-            word_count, additional_requirements, expected_delivery_date, files, 'pending', datetime.now()
+            word_count, additional_requirements, expected_delivery_date, files, 'pending', datetime.now(), user_id
         ))
         db.commit()
         request_id = cur.lastrowid
@@ -188,6 +331,7 @@ def create_request():
 
 # 文件上传接口
 @app.route('/api/upload', methods=['POST'])
+@token_required
 def upload_file():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
@@ -211,15 +355,34 @@ def upload_file():
 
 # 文件下载接口
 @app.route('/api/files/<filename>', methods=['GET'])
+@token_required
 def get_file(filename):
+    # 这里可以添加文件权限检查，但需要知道文件与项目的关联
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # 项目文件接口
 @app.route('/api/project-files', methods=['POST'])
+@token_required
 def create_project_file():
     data = request.json
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id')
     
     project_id = data.get('projectId')
+    
+    # 检查用户是否有权限操作此项目
+    with db.cursor() as cur:
+        if user_role == 'LM':
+            # LM可以操作任何项目
+            cur.execute("SELECT id FROM projectname WHERE id = %s", (project_id,))
+        else:
+            # BO只能操作自己的项目
+            cur.execute("SELECT id FROM projectname WHERE id = %s AND created_by = %s", (project_id, user_id))
+        
+        project = cur.fetchone()
+        if not project:
+            return jsonify({"error": "Project not found or you don't have permission"}), 404
+    
     file_type = data.get('fileType')
     notes = data.get('notes', '')
     files = ','.join(data.get('files', []))
@@ -228,11 +391,11 @@ def create_project_file():
     with db.cursor() as cur:
         sql = """
         INSERT INTO project_files (
-            projectId, fileType, notes, files, uploadTime
-        ) VALUES (%s, %s, %s, %s, %s)
+            projectId, fileType, notes, files, uploadTime, created_by
+        ) VALUES (%s, %s, %s, %s, %s, %s)
         """
         cur.execute(sql, (
-            project_id, file_type, notes, files, datetime.now()
+            project_id, file_type, notes, files, datetime.now(), user_id
         ))
         db.commit()
         file_id = cur.lastrowid
@@ -241,10 +404,27 @@ def create_project_file():
 
 # 邮件接口
 @app.route('/api/emails', methods=['POST'])
+@token_required
 def send_email():
     data = request.json
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id')
     
     project_id = data.get('projectId')
+    
+    # 检查用户是否有权限操作此项目
+    with db.cursor() as cur:
+        if user_role == 'LM':
+            # LM可以操作任何项目
+            cur.execute("SELECT id FROM projectname WHERE id = %s", (project_id,))
+        else:
+            # BO只能操作自己的项目
+            cur.execute("SELECT id FROM projectname WHERE id = %s AND created_by = %s", (project_id, user_id))
+        
+        project = cur.fetchone()
+        if not project:
+            return jsonify({"error": "Project not found or you don't have permission"}), 404
+    
     to = data.get('to')
     cc = data.get('cc', '')
     subject = data.get('subject')
@@ -255,11 +435,11 @@ def send_email():
     with db.cursor() as cur:
         sql = """
         INSERT INTO emails (
-            projectId, toRecipient, ccRecipient, subject, content, attachments, sendTime
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+            projectId, toRecipient, ccRecipient, subject, content, attachments, sendTime, sent_by
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         cur.execute(sql, (
-            project_id, to, cc, subject, content, attachments, datetime.now()
+            project_id, to, cc, subject, content, attachments, datetime.now(), user_id
         ))
         db.commit()
         email_id = cur.lastrowid
@@ -271,19 +451,41 @@ def send_email():
 
 # 报价接口
 @app.route('/api/quotes', methods=['GET'])
+@token_required
 def get_quotes():
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id')
+    
     with db.cursor() as cur:
-        cur.execute("""
-            SELECT q.*, p.projectName 
-            FROM quotes q 
-            JOIN projectname p ON q.projectId = p.id
-        """)
+        if user_role == 'LM':
+            # LM可以查看所有报价
+            cur.execute("""
+                SELECT q.*, p.projectName 
+                FROM quotes q 
+                JOIN projectname p ON q.projectId = p.id
+            """)
+        else:
+            # BO只能查看自己项目的报价
+            cur.execute("""
+                SELECT q.*, p.projectName 
+                FROM quotes q 
+                JOIN projectname p ON q.projectId = p.id
+                WHERE p.created_by = %s
+            """, (user_id,))
+        
         quotes = cur.fetchall()
     return jsonify(quotes)
 
 @app.route('/api/quotes', methods=['POST'])
+@token_required
 def create_quote():
     data = request.json
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id')
+    
+    # 只有LM可以创建报价
+    if user_role != 'LM':
+        return jsonify({"error": "Only LM can create quotes"}), 403
     
     project_id = data.get('projectId')
     lsp_name = data.get('lspName')
@@ -299,12 +501,12 @@ def create_quote():
         sql = """
         INSERT INTO quotes (
             projectId, lspName, quoteAmount, currency, wordCount, 
-            quoteDate, status, notes, createTime
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            quoteDate, status, notes, createTime, created_by
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cur.execute(sql, (
             project_id, lsp_name, quote_amount, currency, word_count,
-            quote_date, status, notes, datetime.now()
+            quote_date, status, notes, datetime.now(), user_id
         ))
         db.commit()
         quote_id = cur.lastrowid
@@ -312,7 +514,14 @@ def create_quote():
     return jsonify({"id": quote_id, "message": "Quote created successfully"}), 201
 
 @app.route('/api/quotes/extract', methods=['POST'])
+@token_required
 def extract_quote():
+    user_role = request.user.get('role')
+    
+    # 只有LM可以提取报价
+    if user_role != 'LM':
+        return jsonify({"error": "Only LM can extract quotes"}), 403
+    
     data = request.json
     email_content = data.get('emailContent', '')
     
@@ -341,11 +550,80 @@ def extract_quote():
 
 # 聊天接口
 @app.route('/api/chat', methods=['POST'])
+@token_required
 def chat():
     data = request.json
     user_message = data.get('message')
     response = get_chat_response(user_message)
     return jsonify({'response': response})
 
+# 初始化数据库表
+def init_db():
+    with db.cursor() as cur:
+        # 检查users表是否存在
+        cur.execute("SHOW TABLES LIKE 'users'")
+        if not cur.fetchone():
+            # 创建users表
+            cur.execute("""
+                CREATE TABLE users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(50) NOT NULL UNIQUE,
+                    password VARCHAR(100) NOT NULL,
+                    name VARCHAR(100) NOT NULL,
+                    role ENUM('LM', 'BO') NOT NULL,
+                    email VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # 添加默认用户
+            cur.execute("""
+                INSERT INTO users (username, password, name, role, email)
+                VALUES 
+                ('admin', 'admin123', 'Admin User', 'LM', 'admin@example.com'),
+                ('bo1', 'bo123', 'Business Owner 1', 'BO', 'bo1@example.com'),
+                ('bo2', 'bo123', 'Business Owner 2', 'BO', 'bo2@example.com')
+            """)
+            
+            print("Users table created and populated with default users")
+        
+        # 检查projectname表是否有created_by字段
+        cur.execute("SHOW COLUMNS FROM projectname LIKE 'created_by'")
+        if not cur.fetchone():
+            # 添加created_by字段
+            cur.execute("ALTER TABLE projectname ADD COLUMN created_by INT")
+            print("Added created_by column to projectname table")
+        
+        # 检查requests表是否有created_by字段
+        cur.execute("SHOW COLUMNS FROM requests LIKE 'created_by'")
+        if not cur.fetchone():
+            # 添加created_by字段
+            cur.execute("ALTER TABLE requests ADD COLUMN created_by INT")
+            print("Added created_by column to requests table")
+        
+        # 检查project_files表是否有created_by字段
+        cur.execute("SHOW COLUMNS FROM project_files LIKE 'created_by'")
+        if not cur.fetchone():
+            # 添加created_by字段
+            cur.execute("ALTER TABLE project_files ADD COLUMN created_by INT")
+            print("Added created_by column to project_files table")
+        
+        # 检查emails表是否有sent_by字段
+        cur.execute("SHOW COLUMNS FROM emails LIKE 'sent_by'")
+        if not cur.fetchone():
+            # 添加sent_by字段
+            cur.execute("ALTER TABLE emails ADD COLUMN sent_by INT")
+            print("Added sent_by column to emails table")
+        
+        # 检查quotes表是否有created_by字段
+        cur.execute("SHOW COLUMNS FROM quotes LIKE 'created_by'")
+        if not cur.fetchone():
+            # 添加created_by字段
+            cur.execute("ALTER TABLE quotes ADD COLUMN created_by INT")
+            print("Added created_by column to quotes table")
+        
+        db.commit()
+
 if __name__ == '__main__':
+    init_db()  # 初始化数据库
     app.run(debug=True)
