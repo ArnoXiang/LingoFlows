@@ -1,6 +1,6 @@
-# AI-Powered Translation & Chat Platform
+# LingoFlows - Collaborative Localization Management Platform
 
-An integrated platform that combines AI chat capabilities, translation services, and project management functionalities.
+An integrated platform that combines AI chat capabilities, translation services, and project management functionalities, specifically designed for localization workflows.
 
 ## Core Features
 
@@ -14,27 +14,81 @@ An integrated platform that combines AI chat capabilities, translation services,
 - Professional translation services
 - Multi-language support
 - Integrated translation form interface
+- Translation history tracking
 
-### 3. Project Management System
+### 3. Request Management
+- Localization request submission
+- Detailed request form with:
+  * Request name
+  * Request background
+  * Source and target languages
+  * Word count estimation
+  * Additional requirements
+  * Expected delivery date
+  * File upload
+- Automatic creation of associated projects
+
+### 4. Project Management System
 - Project listing and overview
 - Project status tracking
+- Role-based permission control:
+  * Localization Managers (LM) have full access
+  * Business Owners (BO) can only view and edit their own projects
 - Detailed project information including:
   * Project Name
   * Project Status
   * Request Name
   * Project Manager
   * Creation Time
-  * Translation Task Status
-  * LQA Task Status
-  * Translation Update Status
-  * LQA Report Finalization Status
+  * Source and target languages
+  * Word count
+  * Expected delivery date
+  * Additional requirements
 
-### 4. UI Features
+### 5. Task Management
+- Four task types tracking:
+  * Translation
+  * Linguistic Quality Assessment (LQA)
+  * Translation Update
+  * LQA Report Finalization
+- Task status management:
+  * Not Started
+  * In Progress
+  * Completed
+- Task details:
+  * Assignee allocation
+  * Deadline setting
+  * Task notes
+
+### 6. Financial Management
+- Project quote management
+- Financial reporting
+- Accessible only to Localization Managers
+
+### 7. UI Features
 - Responsive sidebar navigation
 - User authentication (login/logout)
 - Breadcrumb navigation
 - Back-to-top functionality
-- Dark theme support
+- Bilingual interface (Chinese/English)
+- Role-based menu display
+
+## User Roles
+
+### Localization Manager (LM)
+- Can access all features and projects
+- Can edit details of any project
+- Can manage task assignments and deadlines
+- Can access financial management
+
+### Business Owner (BO)
+- Can only view and edit their own projects
+- Can submit localization requests
+- Can view project status
+- Cannot access financial management
+
+### Non-logged Users
+- Can only access AI Assistant and Translator tools
 
 ## Technology Stack
 
@@ -46,6 +100,7 @@ An integrated platform that combines AI chat capabilities, translation services,
 ### Backend
 - Flask (Python web framework)
 - PyMySQL (Database connector)
+- JWT (User authentication)
 - Python
 
 ## Database
@@ -55,7 +110,7 @@ An integrated platform that combines AI chat capabilities, translation services,
 
 ### Prerequisites
 - Node.js
-- Python 3.8
+- Python 3.8+
 - MySQL
 
 ### Installation
@@ -73,7 +128,7 @@ npm install
 
 3. Install Backend Dependencies
 ```bash
-pip install flask flask-cors pymysql
+pip install flask flask-cors pymysql pyjwt
 ```
 
 4. Database Setup
@@ -113,3 +168,6 @@ Please read our contributing guidelines before submitting pull requests.
 
 ## License
 This project is licensed under the MIT License.
+
+## Developer
+Yizhuo Xiang
