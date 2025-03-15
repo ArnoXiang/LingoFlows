@@ -39,6 +39,20 @@
       style="margin-top: 16px;"
       :column-resizable="true"
     >
+      <!-- 空状态提示 -->
+      <template #empty>
+        <div style="text-align: center; padding: 20px;">
+          <a-empty description="暂无项目数据 / No project data available">
+            <template #image>
+              <icon-file style="font-size: 48px; color: #c2c7d0;" />
+            </template>
+            <a-button type="primary" @click="refreshProjects">
+              刷新 / Refresh
+            </a-button>
+          </a-empty>
+        </div>
+      </template>
+      
       <!-- 项目状态列 -->
       <template #projectStatus="{ record }">
         <a-tag :color="getStatusColor(record.projectStatus)">
@@ -103,13 +117,6 @@
             上传文件 / Upload Files
           </a-button>
         </a-space>
-      </template>
-      
-      <!-- 空状态 -->
-      <template #empty>
-        <div class="empty-state">
-          <a-empty description="暂无项目数据 / No project data available" />
-        </div>
       </template>
     </a-table>
     
@@ -305,6 +312,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { Message } from '@arco-design/web-vue';
+import { IconFile } from '@arco-design/web-vue/es/icon';
 import axios from 'axios';
 import { languages } from '../utils/languages';
 
@@ -317,6 +325,10 @@ const props = defineProps({
   userId: {
     type: Number,
     default: null
+  },
+  projectData: {
+    type: Array,
+    default: () => []
   }
 });
 
@@ -425,6 +437,14 @@ const uploadForm = reactive({
 
 // 过滤后的项目列表
 const filteredProjects = computed(() => {
+  console.log('ProjectManagement - 原始项目数据:', projects.value);
+  
+  // 检查数据格式
+  if (projects.value && projects.value.length > 0) {
+    console.log('ProjectManagement - 第一个项目数据示例:', JSON.stringify(projects.value[0]));
+    console.log('ProjectManagement - 项目数据中是否有id字段:', projects.value[0].hasOwnProperty('id'));
+  }
+  
   let result = [...projects.value];
   
   // 状态过滤
@@ -442,6 +462,7 @@ const filteredProjects = computed(() => {
     );
   }
   
+  console.log('ProjectManagement - 过滤后的项目数据:', result);
   return result;
 });
 
@@ -465,6 +486,51 @@ watch([() => props.userId, () => props.userRole], () => {
   fetchProjects();
 });
 
+// 监听projectData变化
+watch(() => props.projectData, (newData) => {
+  if (newData && newData.length > 0) {
+    console.log('ProjectManagement - 接收到App.vue传递的项目数据:', newData);
+    
+    // 处理接收到的项目数据
+    const processedProjects = newData.map(project => {
+      // 确保id字段存在且为数字类型
+      const id = project.id ? Number(project.id) : null;
+      
+      // 处理targetLanguages字段，如果是字符串则转换为数组
+      let targetLanguages = project.targetLanguages;
+      if (typeof targetLanguages === 'string' && targetLanguages) {
+        targetLanguages = targetLanguages.split(',');
+      } else if (!targetLanguages) {
+        targetLanguages = [];
+      }
+      
+      // 处理additionalRequirements字段，如果是字符串则转换为数组
+      let additionalRequirements = project.additionalRequirements;
+      if (typeof additionalRequirements === 'string' && additionalRequirements) {
+        additionalRequirements = additionalRequirements.split(',');
+      } else if (!additionalRequirements) {
+        additionalRequirements = [];
+      }
+      
+      // 返回处理后的项目对象
+      return {
+        ...project,
+        id,
+        targetLanguages,
+        additionalRequirements,
+        // 确保任务状态字段存在
+        taskTranslation: project.taskTranslation || 'not_started',
+        taskLQA: project.taskLQA || 'not_started',
+        taskTranslationUpdate: project.taskTranslationUpdate || 'not_started',
+        taskLQAReportFinalization: project.taskLQAReportFinalization || 'not_started'
+      };
+    });
+    
+    console.log('ProjectManagement - 处理后的App.vue项目数据:', processedProjects);
+    projects.value = processedProjects;
+  }
+}, { immediate: true });
+
 // 方法
 const fetchProjects = async () => {
   if (!props.userId) {
@@ -475,10 +541,74 @@ const fetchProjects = async () => {
   console.log(`开始获取项目数据，用户ID: ${props.userId}, 用户角色: ${props.userRole}`);
   loading.value = true;
   try {
-    console.log('发送请求到 /api/projects');
-    const response = await axios.get('http://localhost:5000/api/projects');
-    console.log('获取项目数据成功:', response.data);
-    projects.value = response.data;
+    // 获取存储的令牌
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('未找到令牌，无法获取项目数据');
+      Message.error('未登录或会话已过期 / Not logged in or session expired');
+      return;
+    }
+    
+    // 设置请求头
+    const headers = {
+      'Authorization': `Bearer ${token}`
+    };
+    console.log('发送请求到 /api/projects，带有Authorization头');
+    console.log('Authorization头:', headers.Authorization);
+    
+    const response = await axios.get('http://localhost:5000/api/projects', { headers });
+    console.log('获取项目数据成功，原始数据:', response.data);
+    
+    if (Array.isArray(response.data) && response.data.length === 0) {
+      console.log('服务器返回了空数组，可能是因为没有项目或权限问题');
+      if (props.userRole === 'LM') {
+        console.log('当前用户是LM，应该能看到所有项目，可能是数据库中没有项目或created_by字段未设置');
+      } else {
+        console.log('当前用户不是LM，只能看到自己创建的项目，可能是没有项目与当前用户关联');
+      }
+      projects.value = [];
+    } else if (Array.isArray(response.data)) {
+      // 确保每个项目对象都有必要的字段
+      const processedProjects = response.data.map(project => {
+        // 确保id字段存在且为数字类型
+        const id = project.id ? Number(project.id) : null;
+        
+        // 处理targetLanguages字段，如果是字符串则转换为数组
+        let targetLanguages = project.targetLanguages;
+        if (typeof targetLanguages === 'string' && targetLanguages) {
+          targetLanguages = targetLanguages.split(',');
+        } else if (!targetLanguages) {
+          targetLanguages = [];
+        }
+        
+        // 处理additionalRequirements字段，如果是字符串则转换为数组
+        let additionalRequirements = project.additionalRequirements;
+        if (typeof additionalRequirements === 'string' && additionalRequirements) {
+          additionalRequirements = additionalRequirements.split(',');
+        } else if (!additionalRequirements) {
+          additionalRequirements = [];
+        }
+        
+        // 返回处理后的项目对象
+        return {
+          ...project,
+          id,
+          targetLanguages,
+          additionalRequirements,
+          // 确保任务状态字段存在
+          taskTranslation: project.taskTranslation || 'not_started',
+          taskLQA: project.taskLQA || 'not_started',
+          taskTranslationUpdate: project.taskTranslationUpdate || 'not_started',
+          taskLQAReportFinalization: project.taskLQAReportFinalization || 'not_started'
+        };
+      });
+      
+      console.log('处理后的项目数据:', processedProjects);
+      projects.value = processedProjects;
+    } else {
+      console.error('返回的数据不是数组:', response.data);
+      projects.value = [];
+    }
   } catch (error) {
     console.error('获取项目数据失败:', error);
     if (error.response) {
@@ -486,6 +616,7 @@ const fetchProjects = async () => {
       console.error('状态码:', error.response.status);
     }
     Message.error('获取项目列表失败 / Failed to fetch projects');
+    projects.value = [];
   } finally {
     loading.value = false;
   }

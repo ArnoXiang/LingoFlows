@@ -163,7 +163,7 @@
           
           <!-- 项目管理页面 -->
           <div v-if="currentPage === 'project_management'">
-            <ProjectManagement :userRole="userRole" :userId="userId" />
+            <ProjectManagement :userRole="userRole" :userId="userId" :projectData="projectData" />
           </div>
           
           <!-- 财务管理页面 -->
@@ -352,6 +352,9 @@ export default defineComponent({
             content: '自动登录成功 / Auto login successful',
             duration: 2000,
           });
+          
+          // 自动登录成功后获取项目数据
+          fetchProjectData();
         } catch (error) {
           console.error('自动登录失败:', error);
           if (error.response) {
@@ -447,6 +450,9 @@ export default defineComponent({
           content: '登录成功 / Login successful',
           duration: 2000,
         });
+        
+        // 登录成功后获取项目数据
+        fetchProjectData();
       } catch (error) {
         console.error('登录失败:', error);
         if (error.response) {
@@ -505,6 +511,12 @@ export default defineComponent({
       if (hasPermission(targetPage)) {
         currentPage.value = targetPage;
         Message.info({ content: `You select ${key}`, showIcon: true });
+        
+        // 如果切换到项目管理页面，刷新项目数据
+        if (targetPage === 'project_management' && isLoggedIn.value) {
+          console.log('切换到项目管理页面，刷新项目数据');
+          fetchProjectData();
+        }
       } else {
         Message.error('您没有权限访问此页面 / You do not have permission to access this page');
       }
@@ -586,7 +598,21 @@ export default defineComponent({
 
     const fetchProjectData = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/projects');
+        // 获取存储的令牌
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('未找到令牌，无法获取项目数据');
+          return;
+        }
+        
+        // 设置请求头
+        const headers = {
+          'Authorization': `Bearer ${token}`
+        };
+        console.log('App.vue - 发送请求到 /api/projects，带有Authorization头');
+        
+        const response = await axios.get('http://localhost:5000/api/projects', { headers });
+        console.log('App.vue - 获取项目数据成功:', response.data);
         projectData.value = response.data;
       } catch (error) {
         console.error('Error fetching project data:', error);

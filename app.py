@@ -38,7 +38,10 @@ def login():
     username = data.get('username')
     password = data.get('password')
     
+    print(f"尝试登录 - 用户名: {username}")
+    
     if not username or not password:
+        print("错误: 用户名和密码是必需的")
         return jsonify({"error": "Username and password are required"}), 400
     
     with db.cursor() as cur:
@@ -46,17 +49,23 @@ def login():
         cur.execute("SELECT * FROM users WHERE username = %s", (username,))
         user = cur.fetchone()
         
-        if not user or user['password'] != password:  # 实际应用中应使用密码哈希
+        if not user or user['password'] != password:  
+            print("错误: 无效的用户名或密码")
             return jsonify({"error": "Invalid username or password"}), 401
+        
+        print(f"登录成功 - 用户ID: {user['id']}, 角色: {user['role']}")
         
         # 生成JWT令牌
         payload = {
-            'user_id': user['id'],
+            'id': user['id'],  # 使用'id'作为键名，与其他地方保持一致
+            'user_id': user['id'],  # 同时保留'user_id'键名以兼容可能的旧代码
             'username': user['username'],
             'role': user['role'],
             'exp': datetime.utcnow() + app.config['JWT_EXPIRATION_DELTA']
         }
         token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
+        
+        print(f"生成的令牌负载: {payload}")
         
         return jsonify({
             "token": token,
@@ -96,16 +105,21 @@ def token_required(f):
     def decorated(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
         if not auth_header:
+            print("错误: 请求中缺少Authorization头")
             return jsonify({"error": "Authorization header is missing"}), 401
         
         try:
             token = auth_header.split(" ")[1]
+            print(f"收到令牌: {token[:10]}...")
             payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            print(f"解码后的令牌负载: {payload}")
             request.user = payload
             return f(*args, **kwargs)
         except jwt.ExpiredSignatureError:
+            print("错误: 令牌已过期")
             return jsonify({"error": "Token has expired"}), 401
-        except (jwt.InvalidTokenError, IndexError):
+        except (jwt.InvalidTokenError, IndexError) as e:
+            print(f"错误: 无效的令牌 - {str(e)}")
             return jsonify({"error": "Invalid token"}), 401
     
     decorated.__name__ = f.__name__
@@ -116,17 +130,42 @@ def token_required(f):
 @token_required
 def get_projects():
     user_role = request.user.get('role')
-    user_id = request.user.get('user_id')
+    # 尝试从不同的键名获取用户ID
+    user_id = request.user.get('user_id') or request.user.get('id')
+    
+    print(f"获取项目 - 用户角色: {user_role}, 用户ID: {user_id}")
+    print(f"完整的用户信息: {request.user}")
     
     with db.cursor() as cur:
         if user_role == 'LM':
             # LM可以查看所有项目
+            print("LM用户 - 查询所有项目")
             cur.execute("SELECT * FROM projectname")
         else:
             # BO只能查看自己提交的项目
+            print(f"非LM用户 - 只查询用户ID为 {user_id} 的项目")
             cur.execute("SELECT * FROM projectname WHERE created_by = %s", (user_id,))
         
         projects = cur.fetchall()
+        print(f"查询结果: 找到 {len(projects)} 个项目")
+        
+        # 如果是LM用户但没有找到项目，检查是否有项目的created_by为NULL
+        if user_role == 'LM' and len(projects) == 0:
+            print("LM用户没有找到项目，检查是否有项目的created_by为NULL")
+            cur.execute("SELECT COUNT(*) as count FROM projectname WHERE created_by IS NULL")
+            null_count = cur.fetchone()['count']
+            print(f"created_by为NULL的项目数: {null_count}")
+            
+            if null_count > 0:
+                print("更新created_by为NULL的项目，设置为当前用户ID")
+                cur.execute("UPDATE projectname SET created_by = %s WHERE created_by IS NULL", (user_id,))
+                db.commit()
+                
+                # 重新查询所有项目
+                cur.execute("SELECT * FROM projectname")
+                projects = cur.fetchall()
+                print(f"更新后查询结果: 找到 {len(projects)} 个项目")
+    
     return jsonify(projects)
 
 @app.route('/api/projects/<int:project_id>', methods=['GET'])
