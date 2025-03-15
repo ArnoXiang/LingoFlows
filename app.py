@@ -365,8 +365,37 @@ def create_request():
         ))
         db.commit()
         request_id = cur.lastrowid
+        
+        # 自动创建项目
+        project_name = f"{request_name} 项目"
+        project_manager = 'Yizhuo Xiang'  # 默认项目经理
+        project_status = 'pending'  # 默认状态为待处理
+        
+        # 创建项目记录
+        project_sql = """
+        INSERT INTO projectname (
+            projectName, projectStatus, requestName, projectManager, createTime,
+            sourceLanguage, targetLanguages, wordCount, expectedDeliveryDate, additionalRequirements,
+            taskTranslation, taskLQA, taskTranslationUpdate, taskLQAReportFinalization, created_by
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cur.execute(project_sql, (
+            project_name, project_status, request_name, project_manager, datetime.now(),
+            source_language, target_languages, word_count, expected_delivery_date, additional_requirements,
+            'not_started', 'not_started', 'not_started', 'not_started', user_id
+        ))
+        db.commit()
+        project_id = cur.lastrowid
+        
+        # 更新请求记录，关联项目ID
+        cur.execute("UPDATE requests SET project_id = %s WHERE id = %s", (project_id, request_id))
+        db.commit()
     
-    return jsonify({"id": request_id, "message": "Request created successfully"}), 201
+    return jsonify({
+        "id": request_id, 
+        "project_id": project_id,
+        "message": "Request submitted and project created successfully"
+    }), 201
 
 # 文件上传接口
 @app.route('/api/upload', methods=['POST'])
@@ -639,6 +668,13 @@ def init_db():
             # 添加created_by字段
             cur.execute("ALTER TABLE requests ADD COLUMN created_by INT")
             print("Added created_by column to requests table")
+        
+        # 检查requests表是否有project_id字段
+        cur.execute("SHOW COLUMNS FROM requests LIKE 'project_id'")
+        if not cur.fetchone():
+            # 添加project_id字段
+            cur.execute("ALTER TABLE requests ADD COLUMN project_id INT")
+            print("Added project_id column to requests table")
         
         # 检查project_files表是否有created_by字段
         cur.execute("SHOW COLUMNS FROM project_files LIKE 'created_by'")

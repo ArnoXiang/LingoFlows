@@ -336,13 +336,14 @@ export default defineComponent({
           console.log('获取用户信息成功:', response.data);
           
           // 更新用户信息
-          userId.value = response.data.id;
+          userId.value = Number(response.data.id); // 确保转换为数字类型
           userName.value = response.data.name;
           userRole.value = response.data.role;
           isLoggedIn.value = true;
           
           console.log('用户信息已更新:', {
             userId: userId.value,
+            userIdType: typeof userId.value,
             userName: userName.value,
             userRole: userRole.value,
             isLoggedIn: isLoggedIn.value
@@ -429,13 +430,14 @@ export default defineComponent({
         
         // 更新用户信息
         const user = response.data.user;
-        userId.value = user.id;
+        userId.value = Number(user.id); // 确保转换为数字类型
         userName.value = user.name;
         userRole.value = user.role;
         isLoggedIn.value = true;
         
         console.log('用户信息已更新:', {
           userId: userId.value,
+          userIdType: typeof userId.value,
           userName: userName.value,
           userRole: userRole.value,
           isLoggedIn: isLoggedIn.value
@@ -613,7 +615,20 @@ export default defineComponent({
         
         const response = await axios.get('http://localhost:5000/api/projects', { headers });
         console.log('App.vue - 获取项目数据成功:', response.data);
-        projectData.value = response.data;
+        
+        // 处理项目数据，确保created_by字段是数字类型
+        if (Array.isArray(response.data)) {
+          const processedData = response.data.map(project => {
+            return {
+              ...project,
+              created_by: project.created_by ? Number(project.created_by) : null
+            };
+          });
+          projectData.value = processedData;
+          console.log('App.vue - 处理后的项目数据:', processedData);
+        } else {
+          projectData.value = response.data;
+        }
       } catch (error) {
         console.error('Error fetching project data:', error);
       }
@@ -649,6 +664,7 @@ export default defineComponent({
       filteredMenuItems,
       hasPermission,
       loginLoading,
+      userId, // 确保userId被导出
     };
   }
 });

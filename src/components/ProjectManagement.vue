@@ -107,13 +107,13 @@
           <a-button type="text" size="small" @click="viewProject(record)">
             查看 / View
           </a-button>
-          <a-button type="text" size="small" @click="editProject(record)" v-if="canPerformAction(record)">
+          <a-button type="text" size="small" @click="editProject(record)" v-if="props.userRole === 'LM'">
             编辑 / Edit
           </a-button>
-          <a-button type="text" size="small" @click="sendEmail(record)" v-if="canPerformAction(record)">
+          <a-button type="text" size="small" @click="sendEmail(record)" v-if="props.userRole === 'LM'">
             发送邮件 / Send Email
           </a-button>
-          <a-button type="text" size="small" @click="uploadFiles(record)" v-if="canPerformAction(record)">
+          <a-button type="text" size="small" @click="uploadFiles(record)" v-if="props.userRole === 'LM'">
             上传文件 / Upload Files
           </a-button>
         </a-space>
@@ -130,18 +130,27 @@
       <div v-if="currentProject">
         <a-descriptions :column="1" bordered>
           <a-descriptions-item label="项目名称 / Project Name">
-            {{ currentProject.projectName }}
+            <a-input v-model="currentProject.projectName" v-if="isEditing && props.userRole === 'LM'" />
+            <span v-else>{{ currentProject.projectName }}</span>
           </a-descriptions-item>
           <a-descriptions-item label="项目状态 / Project Status">
-            <a-tag :color="getStatusColor(currentProject.projectStatus)">
+            <a-select v-model="currentProject.projectStatus" v-if="isEditing && props.userRole === 'LM'">
+              <a-option value="pending">待处理 / Pending</a-option>
+              <a-option value="in_progress">进行中 / In Progress</a-option>
+              <a-option value="completed">已完成 / Completed</a-option>
+              <a-option value="cancelled">已取消 / Cancelled</a-option>
+            </a-select>
+            <a-tag v-else :color="getStatusColor(currentProject.projectStatus)">
               {{ getStatusText(currentProject.projectStatus) }}
             </a-tag>
           </a-descriptions-item>
           <a-descriptions-item label="请求名称 / Request Name">
-            {{ currentProject.requestName }}
+            <a-input v-model="currentProject.requestName" v-if="isEditing && props.userRole === 'LM'" />
+            <span v-else>{{ currentProject.requestName }}</span>
           </a-descriptions-item>
           <a-descriptions-item label="项目经理 / Project Manager">
-            {{ currentProject.projectManager }}
+            <a-input v-model="currentProject.projectManager" v-if="isEditing && props.userRole === 'LM'" />
+            <span v-else>{{ currentProject.projectManager }}</span>
           </a-descriptions-item>
           <a-descriptions-item label="创建时间 / Create Time">
             {{ formatDate(currentProject.createTime) }}
@@ -171,7 +180,7 @@
           </a-descriptions-item>
         </a-descriptions>
         
-        <div class="task-management" style="margin-top: 24px;" v-if="canPerformAction(currentProject)">
+        <div class="task-management" style="margin-top: 24px;" v-if="props.userRole === 'LM'">
           <h3>任务管理 / Task Management</h3>
           <a-collapse>
             <a-collapse-item header="翻译任务 / Translation Task" key="1">
@@ -218,12 +227,39 @@
           </a-collapse>
         </div>
         
+        <!-- 只读任务状态显示，当用户只能查看但不能编辑时显示 -->
+        <div class="task-status" style="margin-top: 24px;" v-if="props.userRole === 'BO'">
+          <h3>任务状态 / Task Status</h3>
+          <a-descriptions :column="1" bordered>
+            <a-descriptions-item label="翻译任务 / Translation Task">
+              <a-tag :color="getTaskStatus(currentProject.taskTranslation)">
+                {{ getTaskText(currentProject.taskTranslation) }}
+              </a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="LQA任务 / LQA Task">
+              <a-tag :color="getTaskStatus(currentProject.taskLQA)">
+                {{ getTaskText(currentProject.taskLQA) }}
+              </a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="翻译更新 / Translation Update">
+              <a-tag :color="getTaskStatus(currentProject.taskTranslationUpdate)">
+                {{ getTaskText(currentProject.taskTranslationUpdate) }}
+              </a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="LQA报告定稿 / LQA Report Finalization">
+              <a-tag :color="getTaskStatus(currentProject.taskLQAReportFinalization)">
+                {{ getTaskText(currentProject.taskLQAReportFinalization) }}
+              </a-tag>
+            </a-descriptions-item>
+          </a-descriptions>
+        </div>
+        
         <div class="drawer-footer" style="margin-top: 24px; text-align: right;">
           <a-space>
             <a-button @click="drawerVisible = false">
-              取消 / Cancel
+              关闭 / Close
             </a-button>
-            <a-button type="primary" @click="saveProject" v-if="canPerformAction(currentProject)">
+            <a-button type="primary" @click="saveProject" v-if="props.userRole === 'LM' && isEditing">
               保存 / Save
             </a-button>
           </a-space>
@@ -261,6 +297,7 @@
             action="http://localhost:5000/api/upload"
             :file-list="emailAttachments"
             @change="handleEmailAttachmentChange"
+            :headers="uploadHeaders"
             multiple
           >
             <a-button>上传附件 / Upload Attachments</a-button>
@@ -290,11 +327,11 @@
           <a-upload
             action="http://localhost:5000/api/upload"
             :file-list="projectFiles"
-            @change="handleUploadFilesChange"
+            @change="handleProjectFileChange"
+            :headers="uploadHeaders"
             multiple
-            directory
           >
-            <a-button>选择文件 / Select Files</a-button>
+            <a-button>上传文件 / Upload Files</a-button>
           </a-upload>
         </a-form-item>
         <a-form-item field="notes" label="备注 / Notes">
@@ -421,6 +458,7 @@ const sendingEmail = ref(false);
 const uploading = ref(false);
 const emailAttachments = ref([]);
 const projectFiles = ref([]);
+const isEditing = ref(false);
 
 // 表单数据
 const emailForm = reactive({
@@ -433,6 +471,15 @@ const emailForm = reactive({
 const uploadForm = reactive({
   fileType: 'source',
   notes: '',
+});
+
+// 获取上传请求的headers
+const uploadHeaders = computed(() => {
+  // 从localStorage获取token
+  const token = localStorage.getItem('token');
+  return {
+    Authorization: token ? `Bearer ${token}` : ''
+  };
 });
 
 // 过滤后的项目列表
@@ -466,14 +513,87 @@ const filteredProjects = computed(() => {
   return result;
 });
 
+// 检查用户是否有权限查看项目
+// 与canPerformAction不同，这个函数允许BO查看自己的项目
+const canViewProject = (project) => {
+  if (!project) {
+    console.log('canViewProject - 项目为空');
+    return false;
+  }
+  
+  console.log('canViewProject - 项目:', project);
+  console.log('canViewProject - 用户ID:', props.userId, '类型:', typeof props.userId);
+  console.log('canViewProject - 项目created_by:', project.created_by, '类型:', typeof project.created_by);
+  
+  // 如果用户ID为null，则无权限
+  if (props.userId === null || props.userId === undefined) {
+    console.log('canViewProject - 用户ID为null或undefined，无权限');
+    return false;
+  }
+  
+  if (props.userRole === 'LM') {
+    console.log('canViewProject - 用户是LM，有权限');
+    return true; // LM可以查看所有项目
+  }
+  
+  // BO只能查看自己的项目
+  // 确保类型匹配，将两者都转换为数字进行比较
+  const projectCreatedBy = project.created_by !== null && project.created_by !== undefined ? Number(project.created_by) : null;
+  const userId = Number(props.userId);
+  
+  console.log('canViewProject - 转换后的项目created_by:', projectCreatedBy);
+  console.log('canViewProject - 转换后的用户ID:', userId);
+  
+  // 如果项目的created_by为null，则无法确定所有者，BO无权限
+  if (projectCreatedBy === null) {
+    console.log('canViewProject - 项目created_by为null，BO无权限');
+    return false;
+  }
+  
+  const hasPermission = projectCreatedBy === userId;
+  console.log('canViewProject - 权限检查结果:', hasPermission);
+  return hasPermission;
+};
+
 // 检查用户是否有权限执行操作
 const canPerformAction = (project) => {
+  if (!project) {
+    console.log('canPerformAction - 项目为空');
+    return false;
+  }
+  
+  console.log('canPerformAction - 项目:', project);
+  console.log('canPerformAction - 用户ID:', props.userId, '类型:', typeof props.userId);
+  console.log('canPerformAction - 项目created_by:', project.created_by, '类型:', typeof project.created_by);
+  
+  // 如果用户ID为null，则无权限
+  if (props.userId === null || props.userId === undefined) {
+    console.log('canPerformAction - 用户ID为null或undefined，无权限');
+    return false;
+  }
+  
   if (props.userRole === 'LM') {
+    console.log('canPerformAction - 用户是LM，有权限');
     return true; // LM可以执行所有操作
   }
   
   // BO只能操作自己的项目
-  return project.created_by === props.userId;
+  // 确保类型匹配，将两者都转换为数字进行比较
+  const projectCreatedBy = project.created_by !== null && project.created_by !== undefined ? Number(project.created_by) : null;
+  const userId = Number(props.userId);
+  
+  console.log('canPerformAction - 转换后的项目created_by:', projectCreatedBy);
+  console.log('canPerformAction - 转换后的用户ID:', userId);
+  
+  // 如果项目的created_by为null，则无法确定所有者，BO无权限
+  if (projectCreatedBy === null) {
+    console.log('canPerformAction - 项目created_by为null，BO无权限');
+    return false;
+  }
+  
+  const hasPermission = projectCreatedBy === userId;
+  console.log('canPerformAction - 权限检查结果:', hasPermission);
+  return hasPermission;
 };
 
 // 生命周期钩子
@@ -496,6 +616,9 @@ watch(() => props.projectData, (newData) => {
       // 确保id字段存在且为数字类型
       const id = project.id ? Number(project.id) : null;
       
+      // 确保created_by字段存在且为数字类型
+      const created_by = project.created_by ? Number(project.created_by) : null;
+      
       // 处理targetLanguages字段，如果是字符串则转换为数组
       let targetLanguages = project.targetLanguages;
       if (typeof targetLanguages === 'string' && targetLanguages) {
@@ -516,6 +639,7 @@ watch(() => props.projectData, (newData) => {
       return {
         ...project,
         id,
+        created_by,
         targetLanguages,
         additionalRequirements,
         // 确保任务状态字段存在
@@ -573,6 +697,9 @@ const fetchProjects = async () => {
         // 确保id字段存在且为数字类型
         const id = project.id ? Number(project.id) : null;
         
+        // 确保created_by字段存在且为数字类型
+        const created_by = project.created_by ? Number(project.created_by) : null;
+        
         // 处理targetLanguages字段，如果是字符串则转换为数组
         let targetLanguages = project.targetLanguages;
         if (typeof targetLanguages === 'string' && targetLanguages) {
@@ -593,6 +720,7 @@ const fetchProjects = async () => {
         return {
           ...project,
           id,
+          created_by,
           targetLanguages,
           additionalRequirements,
           // 确保任务状态字段存在
@@ -698,7 +826,21 @@ const formatDate = (dateString) => {
 };
 
 const viewProject = (project) => {
-  if (!canPerformAction(project)) {
+  console.log('查看项目:', project);
+  console.log('当前用户ID:', props.userId, '类型:', typeof props.userId);
+  console.log('项目created_by:', project.created_by, '类型:', typeof project.created_by);
+  
+  // 检查用户是否已登录
+  if (props.userId === null || props.userId === undefined) {
+    console.log('viewProject - 用户未登录或ID为null');
+    Message.error('您需要登录才能查看项目 / You need to login to view projects');
+    return;
+  }
+  
+  const canView = canViewProject(project);
+  console.log('canViewProject结果:', canView);
+  
+  if (!canView) {
     Message.error('您没有权限查看此项目 / You do not have permission to view this project');
     return;
   }
@@ -722,11 +864,25 @@ const viewProject = (project) => {
   };
   drawerTitle.value = `项目详情 / Project Details: ${project.projectName}`;
   drawerVisible.value = true;
+  isEditing.value = false;
 };
 
 const editProject = (project) => {
-  if (!canPerformAction(project)) {
-    Message.error('您没有权限编辑此项目 / You do not have permission to edit this project');
+  console.log('编辑项目:', project);
+  console.log('当前用户ID:', props.userId, '类型:', typeof props.userId);
+  console.log('项目created_by:', project.created_by, '类型:', typeof project.created_by);
+  
+  // 检查用户是否已登录
+  if (props.userId === null || props.userId === undefined) {
+    console.log('editProject - 用户未登录或ID为null');
+    Message.error('您需要登录才能编辑项目 / You need to login to edit projects');
+    return;
+  }
+  
+  // 检查用户角色
+  if (props.userRole !== 'LM') {
+    console.log('editProject - 用户不是LM，无权编辑');
+    Message.error('只有本地化经理可以编辑项目 / Only Localization Managers can edit projects');
     return;
   }
   
@@ -749,13 +905,15 @@ const editProject = (project) => {
   };
   drawerTitle.value = `编辑项目 / Edit Project: ${project.projectName}`;
   drawerVisible.value = true;
+  isEditing.value = true;
 };
 
 const saveProject = async () => {
   if (!currentProject.value) return;
   
-  if (!canPerformAction(currentProject.value)) {
-    Message.error('您没有权限更新此项目 / You do not have permission to update this project');
+  // 检查用户角色
+  if (props.userRole !== 'LM') {
+    Message.error('只有本地化经理可以更新项目 / Only Localization Managers can update projects');
     return;
   }
   
@@ -784,8 +942,9 @@ const saveProject = async () => {
 };
 
 const sendEmail = (project) => {
-  if (!canPerformAction(project)) {
-    Message.error('您没有权限发送此项目的邮件 / You do not have permission to send emails for this project');
+  // 检查用户角色
+  if (props.userRole !== 'LM') {
+    Message.error('只有本地化经理可以发送项目邮件 / Only Localization Managers can send project emails');
     return;
   }
   
@@ -798,24 +957,49 @@ const sendEmail = (project) => {
   emailModalVisible.value = true;
 };
 
-const handleEmailAttachmentChange = (fileList) => {
-  console.log('Email attachment list changed:', fileList);
-  emailAttachments.value = fileList;
+const handleEmailAttachmentChange = (options) => {
+  console.log('Email attachment change event:', options);
+  
+  // 处理上传成功的情况
+  if (options.file.status === 'done') {
+    const response = options.file.response;
+    if (response && response.filename) {
+      Message.success(`附件 ${options.file.name} 上传成功 / Attachment ${options.file.name} uploaded successfully`);
+    }
+  }
+  
+  // 处理上传失败的情况
+  if (options.file.status === 'error') {
+    console.error('Attachment upload error:', options.file.response);
+    Message.error(`附件 ${options.file.name} 上传失败 / Attachment ${options.file.name} upload failed`);
+  }
+  
+  // 更新附件列表
+  emailAttachments.value = options.fileList;
 };
 
 const sendProjectEmail = async () => {
-  if (!emailForm.to || !emailForm.subject || !emailForm.content) {
-    Message.error('请填写必填字段 / Please fill in all required fields');
+  if (!currentProject.value) return;
+  
+  // 检查用户角色
+  if (props.userRole !== 'LM') {
+    Message.error('只有本地化经理可以发送项目邮件 / Only Localization Managers can send project emails');
     return;
   }
   
-  if (!canPerformAction(currentProject.value)) {
-    Message.error('您没有权限发送此项目的邮件 / You do not have permission to send emails for this project');
+  // 表单验证
+  if (!emailForm.to || !emailForm.subject || !emailForm.content) {
+    Message.error('请填写所有必填字段 / Please fill in all required fields');
     return;
   }
   
   try {
     sendingEmail.value = true;
+    
+    // 获取已上传附件的文件名
+    const attachments = emailAttachments.value
+      .filter(file => file.status === 'done' && file.response)
+      .map(file => file.response.filename);
     
     // 准备邮件数据
     const emailData = {
@@ -824,7 +1008,7 @@ const sendProjectEmail = async () => {
       cc: emailForm.cc,
       subject: emailForm.subject,
       content: emailForm.content,
-      attachments: emailAttachments.value.map(file => file.name),
+      attachments: attachments
     };
     
     // 发送邮件请求
@@ -845,8 +1029,9 @@ const sendProjectEmail = async () => {
 };
 
 const uploadFiles = (project) => {
-  if (!canPerformAction(project)) {
-    Message.error('您没有权限上传此项目的文件 / You do not have permission to upload files for this project');
+  // 检查用户角色
+  if (props.userRole !== 'LM') {
+    Message.error('只有本地化经理可以上传项目文件 / Only Localization Managers can upload project files');
     return;
   }
   
@@ -857,44 +1042,81 @@ const uploadFiles = (project) => {
   uploadModalVisible.value = true;
 };
 
-const handleUploadFilesChange = (fileList) => {
-  console.log('Upload file list changed:', fileList);
-  projectFiles.value = fileList;
+const handleProjectFileChange = (options) => {
+  console.log('Project file change event:', options);
+  
+  // 处理上传成功的情况
+  if (options.file.status === 'done') {
+    const response = options.file.response;
+    if (response && response.filename) {
+      Message.success(`文件 ${options.file.name} 上传成功 / File ${options.file.name} uploaded successfully`);
+    }
+  }
+  
+  // 处理上传失败的情况
+  if (options.file.status === 'error') {
+    console.error('File upload error:', options.file.response);
+    Message.error(`文件 ${options.file.name} 上传失败 / File ${options.file.name} upload failed`);
+  }
+  
+  // 更新文件列表
+  projectFiles.value = options.fileList;
 };
 
 const submitUploadFiles = async () => {
-  if (!uploadForm.fileType || projectFiles.value.length === 0) {
-    Message.error('请选择文件类型和上传文件 / Please select file type and upload files');
+  if (!currentProject.value) return;
+  
+  // 检查用户角色
+  if (props.userRole !== 'LM') {
+    Message.error('只有本地化经理可以上传项目文件 / Only Localization Managers can upload project files');
     return;
   }
   
-  if (!canPerformAction(currentProject.value)) {
-    Message.error('您没有权限上传此项目的文件 / You do not have permission to upload files for this project');
+  // 表单验证
+  if (!uploadForm.fileType) {
+    Message.error('请选择文件类型 / Please select file type');
+    return;
+  }
+  
+  if (projectFiles.value.length === 0) {
+    Message.error('请上传至少一个文件 / Please upload at least one file');
     return;
   }
   
   try {
     uploading.value = true;
     
-    // 准备上传数据
-    const uploadData = {
+    // 获取已上传文件的文件名
+    const uploadedFiles = projectFiles.value
+      .filter(file => file.status === 'done' && file.response)
+      .map(file => file.response.filename);
+    
+    if (uploadedFiles.length === 0) {
+      throw new Error('没有成功上传的文件 / No successfully uploaded files');
+    }
+    
+    // 准备项目文件数据
+    const projectFileData = {
       projectId: currentProject.value.id,
       fileType: uploadForm.fileType,
       notes: uploadForm.notes,
-      files: projectFiles.value.map(file => file.name),
+      files: uploadedFiles
     };
     
     // 发送上传请求
-    const response = await axios.post('http://localhost:5000/api/project-files', uploadData);
+    const response = await axios.post('http://localhost:5000/api/project-files', projectFileData);
     
-    if (response.status === 200) {
+    if (response.status === 201) {
       Message.success('文件上传成功 / Files uploaded successfully');
       uploadModalVisible.value = false;
+      projectFiles.value = [];
+      uploadForm.fileType = 'source';
+      uploadForm.notes = '';
     } else {
       throw new Error('上传失败 / Upload failed');
     }
   } catch (error) {
-    console.error('Error uploading files:', error);
+    console.error('Error uploading project files:', error);
     Message.error(`上传失败: ${error.message} / Upload failed: ${error.message}`);
   } finally {
     uploading.value = false;

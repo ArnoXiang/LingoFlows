@@ -54,6 +54,7 @@
           action="http://localhost:5000/api/upload"
           :file-list="fileList"
           @change="handleFileChange"
+          :headers="uploadHeaders"
           multiple
         >
           <a-button>上传文件 / Upload Files</a-button>
@@ -73,7 +74,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import { languages } from '../utils/languages';
 import axios from 'axios';
@@ -91,13 +92,39 @@ const form = reactive({
 const fileList = ref([]);
 const submitting = ref(false);
 
+// 获取上传请求的headers
+const uploadHeaders = computed(() => {
+  // 从localStorage获取token
+  const token = localStorage.getItem('token');
+  return {
+    Authorization: token ? `Bearer ${token}` : ''
+  };
+});
+
 // 禁用今天之前的日期
 const disabledDate = (date) => {
   return date.getTime() < Date.now() - 86400000; // 86400000 = 24 * 60 * 60 * 1000
 };
 
-const handleFileChange = (fileList) => {
-  console.log('File list changed:', fileList);
+const handleFileChange = (options) => {
+  console.log('File change event:', options);
+  
+  // 处理上传成功的情况
+  if (options.file.status === 'done') {
+    const response = options.file.response;
+    if (response && response.filename) {
+      Message.success(`文件 ${options.file.name} 上传成功 / File ${options.file.name} uploaded successfully`);
+    }
+  }
+  
+  // 处理上传失败的情况
+  if (options.file.status === 'error') {
+    console.error('File upload error:', options.file.response);
+    Message.error(`文件 ${options.file.name} 上传失败 / File ${options.file.name} upload failed`);
+  }
+  
+  // 更新文件列表
+  fileList.value = options.fileList;
 };
 
 const handleSubmit = async () => {
@@ -111,19 +138,25 @@ const handleSubmit = async () => {
   try {
     submitting.value = true;
     
+    // 获取已上传文件的文件名
+    const uploadedFiles = fileList.value
+      .filter(file => file.status === 'done' && file.response)
+      .map(file => file.response.filename);
+    
     // 准备请求数据
     const requestData = {
       ...form,
       // 处理日期格式，确保兼容不同类型的日期对象
       expectedDeliveryDate: formatDate(form.expectedDeliveryDate),
-      files: fileList.value.map(file => file.name),
+      files: uploadedFiles,
     };
     
     // 发送请求到后端
     const response = await axios.post('http://localhost:5000/api/requests', requestData);
     
     if (response.status === 200 || response.status === 201) {
-      Message.success('请求提交成功 / Request submitted successfully');
+      // 后端已经自动创建了项目，不需要再调用createProjectFromRequest
+      Message.success('请求提交成功，项目已创建 / Request submitted and project created successfully');
       resetForm();
     } else {
       throw new Error('提交失败 / Submission failed');
