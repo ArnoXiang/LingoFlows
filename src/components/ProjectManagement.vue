@@ -156,23 +156,47 @@
             {{ formatDate(currentProject.createTime) }}
           </a-descriptions-item>
           <a-descriptions-item label="源语言 / Source Language">
-            {{ getLanguageName(currentProject.sourceLanguage) }}
+            <a-select v-model="currentProject.sourceLanguage" v-if="isEditing && props.userRole === 'LM'">
+              <a-option v-for="lang in languages" :key="lang.code" :value="lang.code">
+                {{ lang.name }}
+              </a-option>
+            </a-select>
+            <span v-else>{{ getLanguageName(currentProject.sourceLanguage) }}</span>
           </a-descriptions-item>
           <a-descriptions-item label="目标语言 / Target Languages">
-            <a-space>
+            <div v-if="isEditing && props.userRole === 'LM'">
+              <a-select
+                v-model="currentProject.targetLanguages"
+                placeholder="选择目标语言 / Select target languages"
+                multiple
+              >
+                <a-option v-for="lang in languages" :key="lang.code" :value="lang.code">
+                  {{ lang.name }}
+                </a-option>
+              </a-select>
+            </div>
+            <a-space v-else>
               <a-tag v-for="lang in currentProject.targetLanguages" :key="lang">
                 {{ getLanguageName(lang) }}
               </a-tag>
             </a-space>
           </a-descriptions-item>
           <a-descriptions-item label="字数 / Word Count">
-            {{ currentProject.wordCount }}
+            <a-input-number v-model="currentProject.wordCount" v-if="isEditing && props.userRole === 'LM'" :min="0" />
+            <span v-else>{{ currentProject.wordCount }}</span>
           </a-descriptions-item>
           <a-descriptions-item label="预期交付日期 / Expected Delivery Date">
-            {{ formatDate(currentProject.expectedDeliveryDate) }}
+            <a-date-picker v-model="currentProject.expectedDeliveryDate" v-if="isEditing && props.userRole === 'LM'" />
+            <span v-else>{{ formatDate(currentProject.expectedDeliveryDate) }}</span>
           </a-descriptions-item>
           <a-descriptions-item label="附加要求 / Additional Requirements">
-            <a-space>
+            <div v-if="isEditing && props.userRole === 'LM'">
+              <a-checkbox-group v-model="currentProject.additionalRequirements">
+                <a-checkbox value="lqa">语言质量保证 (LQA) / Linguistic Quality Assurance</a-checkbox>
+                <a-checkbox value="imageTranslation">图像文本翻译 / Image Text Translation</a-checkbox>
+              </a-checkbox-group>
+            </div>
+            <a-space v-else>
               <a-tag v-for="req in currentProject.additionalRequirements" :key="req">
                 {{ getRequirementText(req) }}
               </a-tag>
@@ -664,6 +688,7 @@ const fetchProjects = async () => {
   
   console.log(`开始获取项目数据，用户ID: ${props.userId}, 用户角色: ${props.userRole}`);
   loading.value = true;
+  
   try {
     // 获取存储的令牌
     const token = localStorage.getItem('token');
@@ -678,60 +703,22 @@ const fetchProjects = async () => {
       'Authorization': `Bearer ${token}`
     };
     console.log('发送请求到 /api/projects，带有Authorization头');
-    console.log('Authorization头:', headers.Authorization);
     
     const response = await axios.get('http://localhost:5000/api/projects', { headers });
-    console.log('获取项目数据成功，原始数据:', response.data);
+    console.log('获取项目数据成功:', response.data);
     
-    if (Array.isArray(response.data) && response.data.length === 0) {
-      console.log('服务器返回了空数组，可能是因为没有项目或权限问题');
-      if (props.userRole === 'LM') {
-        console.log('当前用户是LM，应该能看到所有项目，可能是数据库中没有项目或created_by字段未设置');
-      } else {
-        console.log('当前用户不是LM，只能看到自己创建的项目，可能是没有项目与当前用户关联');
-      }
-      projects.value = [];
-    } else if (Array.isArray(response.data)) {
-      // 确保每个项目对象都有必要的字段
-      const processedProjects = response.data.map(project => {
-        // 确保id字段存在且为数字类型
-        const id = project.id ? Number(project.id) : null;
-        
-        // 确保created_by字段存在且为数字类型
-        const created_by = project.created_by ? Number(project.created_by) : null;
-        
-        // 处理targetLanguages字段，如果是字符串则转换为数组
-        let targetLanguages = project.targetLanguages;
-        if (typeof targetLanguages === 'string' && targetLanguages) {
-          targetLanguages = targetLanguages.split(',');
-        } else if (!targetLanguages) {
-          targetLanguages = [];
-        }
-        
-        // 处理additionalRequirements字段，如果是字符串则转换为数组
-        let additionalRequirements = project.additionalRequirements;
-        if (typeof additionalRequirements === 'string' && additionalRequirements) {
-          additionalRequirements = additionalRequirements.split(',');
-        } else if (!additionalRequirements) {
-          additionalRequirements = [];
-        }
-        
-        // 返回处理后的项目对象
-        return {
-          ...project,
-          id,
-          created_by,
-          targetLanguages,
-          additionalRequirements,
-          // 确保任务状态字段存在
-          taskTranslation: project.taskTranslation || 'not_started',
-          taskLQA: project.taskLQA || 'not_started',
-          taskTranslationUpdate: project.taskTranslationUpdate || 'not_started',
-          taskLQAReportFinalization: project.taskLQAReportFinalization || 'not_started'
-        };
-      });
+    if (Array.isArray(response.data)) {
+      console.log('ProjectManagement - 原始项目数据:', response.data);
       
-      console.log('处理后的项目数据:', processedProjects);
+      if (response.data.length > 0) {
+        console.log('ProjectManagement - 第一个项目数据示例:', JSON.stringify(response.data[0]));
+        console.log('ProjectManagement - 项目数据中是否有id字段:', response.data[0].hasOwnProperty('id'));
+      }
+      
+      // 处理项目数据
+      const processedProjects = response.data.map(project => processProject(project));
+      
+      console.log('ProjectManagement - 处理后的项目数据:', processedProjects);
       projects.value = processedProjects;
     } else {
       console.error('返回的数据不是数组:', response.data);
@@ -806,23 +793,40 @@ const getTaskText = (taskStatus) => {
   return textMap[taskStatus] || '未知 / Unknown';
 };
 
+const getRequirementText = (requirement) => {
+  const requirementMap = {
+    lqa: '语言质量保证 (LQA) / Linguistic Quality Assurance',
+    imageTranslation: '图像文本翻译 / Image Text Translation',
+  };
+  return requirementMap[requirement] || requirement;
+};
+
 const getLanguageName = (code) => {
   const language = languages.find(lang => lang.code === code);
   return language ? language.name : code;
 };
 
-const getRequirementText = (req) => {
-  const reqMap = {
-    lqa: '语言质量保证 / LQA',
-    imageTranslation: '图像文本翻译 / Image Translation',
-  };
-  return reqMap[req] || req;
-};
-
 const formatDate = (dateString) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString();
+  if (!dateString) return '未设置 / Not Set';
+  
+  try {
+    // 处理日期对象
+    if (dateString instanceof Date) {
+      return dateString.toLocaleDateString();
+    }
+    
+    // 处理字符串日期
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString();
+    }
+    
+    // 如果无法解析，则返回原始字符串
+    return dateString;
+  } catch (error) {
+    console.error('格式化日期时出错:', error);
+    return dateString;
+  }
 };
 
 const viewProject = (project) => {
@@ -845,20 +849,39 @@ const viewProject = (project) => {
     return;
   }
   
+  // 处理任务详细信息
+  let translationDeadline = null;
+  if (project.translationDeadline) {
+    try {
+      translationDeadline = new Date(project.translationDeadline);
+    } catch (error) {
+      console.error('处理翻译截止日期时出错:', error);
+    }
+  }
+  
+  let lqaDeadline = null;
+  if (project.lqaDeadline) {
+    try {
+      lqaDeadline = new Date(project.lqaDeadline);
+    } catch (error) {
+      console.error('处理LQA截止日期时出错:', error);
+    }
+  }
+  
   currentProject.value = {
     ...project,
     tasks: {
       translation: {
         status: project.taskTranslation || 'not_started',
-        assignee: '',
-        deadline: null,
-        notes: '',
+        assignee: project.translationAssignee || '',
+        deadline: translationDeadline,
+        notes: project.translationNotes || '',
       },
       lqa: {
         status: project.taskLQA || 'not_started',
-        assignee: '',
-        deadline: null,
-        notes: '',
+        assignee: project.lqaAssignee || '',
+        deadline: lqaDeadline,
+        notes: project.lqaNotes || '',
       },
     },
   };
@@ -886,24 +909,61 @@ const editProject = (project) => {
     return;
   }
   
+  // 处理项目数据，确保日期字段正确
+  const processedProject = { ...project };
+  
+  // 处理预期交付日期
+  if (processedProject.expectedDeliveryDate) {
+    try {
+      // 尝试将日期字符串转换为日期对象
+      const dateObj = new Date(processedProject.expectedDeliveryDate);
+      if (!isNaN(dateObj.getTime())) {
+        processedProject.expectedDeliveryDate = dateObj;
+      }
+    } catch (error) {
+      console.error('处理日期字段时出错:', error);
+    }
+  }
+  
+  // 处理任务详细信息
+  let translationDeadline = null;
+  if (processedProject.translationDeadline) {
+    try {
+      translationDeadline = new Date(processedProject.translationDeadline);
+    } catch (error) {
+      console.error('处理翻译截止日期时出错:', error);
+    }
+  }
+  
+  let lqaDeadline = null;
+  if (processedProject.lqaDeadline) {
+    try {
+      lqaDeadline = new Date(processedProject.lqaDeadline);
+    } catch (error) {
+      console.error('处理LQA截止日期时出错:', error);
+    }
+  }
+  
+  // 处理任务状态
   currentProject.value = {
-    ...project,
+    ...processedProject,
     tasks: {
       translation: {
-        status: project.taskTranslation || 'not_started',
-        assignee: '',
-        deadline: null,
-        notes: '',
+        status: processedProject.taskTranslation || 'not_started',
+        assignee: processedProject.translationAssignee || '',
+        deadline: translationDeadline,
+        notes: processedProject.translationNotes || '',
       },
       lqa: {
-        status: project.taskLQA || 'not_started',
-        assignee: '',
-        deadline: null,
-        notes: '',
+        status: processedProject.taskLQA || 'not_started',
+        assignee: processedProject.lqaAssignee || '',
+        deadline: lqaDeadline,
+        notes: processedProject.lqaNotes || '',
       },
     },
   };
-  drawerTitle.value = `编辑项目 / Edit Project: ${project.projectName}`;
+  
+  drawerTitle.value = `编辑项目 / Edit Project: ${processedProject.projectName}`;
   drawerVisible.value = true;
   isEditing.value = true;
 };
@@ -918,12 +978,60 @@ const saveProject = async () => {
   }
   
   try {
+    // 格式化日期为字符串
+    let formattedExpectedDeliveryDate = currentProject.value.expectedDeliveryDate;
+    if (formattedExpectedDeliveryDate instanceof Date) {
+      formattedExpectedDeliveryDate = formattedExpectedDeliveryDate.toISOString().split('T')[0]; // 格式化为 YYYY-MM-DD
+    }
+    console.log('格式化后的日期:', formattedExpectedDeliveryDate);
+    
+    // 格式化任务截止日期
+    let formattedTranslationDeadline = currentProject.value.tasks.translation.deadline;
+    if (formattedTranslationDeadline instanceof Date) {
+      formattedTranslationDeadline = formattedTranslationDeadline.toISOString().split('T')[0];
+    }
+    
+    let formattedLQADeadline = currentProject.value.tasks.lqa.deadline;
+    if (formattedLQADeadline instanceof Date) {
+      formattedLQADeadline = formattedLQADeadline.toISOString().split('T')[0];
+    }
+    
     // 准备更新的项目数据
     const updatedProject = {
-      ...currentProject.value,
+      id: currentProject.value.id,
+      projectName: currentProject.value.projectName,
+      projectStatus: currentProject.value.projectStatus,
+      requestName: currentProject.value.requestName,
+      projectManager: currentProject.value.projectManager,
+      
+      // 任务状态
       taskTranslation: currentProject.value.tasks.translation.status,
       taskLQA: currentProject.value.tasks.lqa.status,
+      taskTranslationUpdate: currentProject.value.taskTranslationUpdate || 'not_started',
+      taskLQAReportFinalization: currentProject.value.taskLQAReportFinalization || 'not_started',
+      
+      // 任务详细信息
+      translationAssignee: currentProject.value.tasks.translation.assignee || '',
+      translationDeadline: formattedTranslationDeadline || null,
+      translationNotes: currentProject.value.tasks.translation.notes || '',
+      
+      lqaAssignee: currentProject.value.tasks.lqa.assignee || '',
+      lqaDeadline: formattedLQADeadline || null,
+      lqaNotes: currentProject.value.tasks.lqa.notes || '',
+      
+      // 其他信息
+      sourceLanguage: currentProject.value.sourceLanguage,
+      targetLanguages: Array.isArray(currentProject.value.targetLanguages) 
+        ? currentProject.value.targetLanguages.join(',') 
+        : currentProject.value.targetLanguages,
+      wordCount: currentProject.value.wordCount,
+      expectedDeliveryDate: formattedExpectedDeliveryDate,
+      additionalRequirements: Array.isArray(currentProject.value.additionalRequirements) 
+        ? currentProject.value.additionalRequirements.join(',') 
+        : currentProject.value.additionalRequirements,
     };
+    
+    console.log('准备更新项目数据:', updatedProject);
     
     // 发送更新请求
     const response = await axios.put(`http://localhost:5000/api/projects/${updatedProject.id}`, updatedProject);
@@ -937,7 +1045,24 @@ const saveProject = async () => {
     }
   } catch (error) {
     console.error('Error updating project:', error);
-    Message.error(`更新失败: ${error.message} / Update failed: ${error.message}`);
+    
+    let errorMessage = '更新失败 / Update failed';
+    
+    if (error.response) {
+      // 服务器返回了错误响应
+      console.error('错误响应:', error.response.data);
+      console.error('状态码:', error.response.status);
+      errorMessage = `更新失败: ${error.response.data?.error || error.response.statusText}`;
+    } else if (error.request) {
+      // 请求已发送但没有收到响应
+      console.error('请求已发送但没有收到响应:', error.request);
+      errorMessage = '无法连接到服务器，请检查网络连接 / Cannot connect to server, please check your network';
+    } else {
+      // 设置请求时发生错误
+      errorMessage = `更新失败: ${error.message}`;
+    }
+    
+    Message.error(errorMessage);
   }
 };
 
@@ -1049,105 +1174,66 @@ const handleProjectFileChange = (options) => {
   if (options.file.status === 'done') {
     const response = options.file.response;
     if (response && response.filename) {
-      Message.success(`文件 ${options.file.name} 上传成功 / File ${options.file.name} uploaded successfully`);
+      Message.success(`附件 ${options.file.name} 上传成功 / Attachment ${options.file.name} uploaded successfully`);
     }
   }
   
   // 处理上传失败的情况
   if (options.file.status === 'error') {
-    console.error('File upload error:', options.file.response);
-    Message.error(`文件 ${options.file.name} 上传失败 / File ${options.file.name} upload failed`);
+    console.error('Attachment upload error:', options.file.response);
+    Message.error(`附件 ${options.file.name} 上传失败 / Attachment ${options.file.name} upload failed`);
   }
   
-  // 更新文件列表
+  // 更新附件列表
   projectFiles.value = options.fileList;
 };
 
-const submitUploadFiles = async () => {
-  if (!currentProject.value) return;
+const processProject = (project) => {
+  // 确保id字段存在且为数字类型
+  const id = project.id ? Number(project.id) : null;
   
-  // 检查用户角色
-  if (props.userRole !== 'LM') {
-    Message.error('只有本地化经理可以上传项目文件 / Only Localization Managers can upload project files');
-    return;
+  // 确保created_by字段存在且为数字类型
+  const created_by = project.created_by ? Number(project.created_by) : null;
+  
+  // 处理targetLanguages字段，如果是字符串则转换为数组
+  let targetLanguages = project.targetLanguages;
+  if (typeof targetLanguages === 'string' && targetLanguages) {
+    targetLanguages = targetLanguages.split(',');
+  } else if (!targetLanguages) {
+    targetLanguages = [];
   }
   
-  // 表单验证
-  if (!uploadForm.fileType) {
-    Message.error('请选择文件类型 / Please select file type');
-    return;
+  // 处理additionalRequirements字段，如果是字符串则转换为数组
+  let additionalRequirements = project.additionalRequirements;
+  if (typeof additionalRequirements === 'string' && additionalRequirements) {
+    additionalRequirements = additionalRequirements.split(',');
+  } else if (!additionalRequirements) {
+    additionalRequirements = [];
   }
   
-  if (projectFiles.value.length === 0) {
-    Message.error('请上传至少一个文件 / Please upload at least one file');
-    return;
-  }
-  
-  try {
-    uploading.value = true;
-    
-    // 获取已上传文件的文件名
-    const uploadedFiles = projectFiles.value
-      .filter(file => file.status === 'done' && file.response)
-      .map(file => file.response.filename);
-    
-    if (uploadedFiles.length === 0) {
-      throw new Error('没有成功上传的文件 / No successfully uploaded files');
-    }
-    
-    // 准备项目文件数据
-    const projectFileData = {
-      projectId: currentProject.value.id,
-      fileType: uploadForm.fileType,
-      notes: uploadForm.notes,
-      files: uploadedFiles
-    };
-    
-    // 发送上传请求
-    const response = await axios.post('http://localhost:5000/api/project-files', projectFileData);
-    
-    if (response.status === 201) {
-      Message.success('文件上传成功 / Files uploaded successfully');
-      uploadModalVisible.value = false;
-      projectFiles.value = [];
-      uploadForm.fileType = 'source';
-      uploadForm.notes = '';
-    } else {
-      throw new Error('上传失败 / Upload failed');
-    }
-  } catch (error) {
-    console.error('Error uploading project files:', error);
-    Message.error(`上传失败: ${error.message} / Upload failed: ${error.message}`);
-  } finally {
-    uploading.value = false;
-  }
+  // 返回处理后的项目对象
+  return {
+    ...project,
+    id,
+    created_by,
+    targetLanguages,
+    additionalRequirements,
+    // 确保任务状态字段存在
+    taskTranslation: project.taskTranslation || 'not_started',
+    taskLQA: project.taskLQA || 'not_started',
+    taskTranslationUpdate: project.taskTranslationUpdate || 'not_started',
+    taskLQAReportFinalization: project.taskLQAReportFinalization || 'not_started',
+    // 确保任务详细信息字段存在
+    translationAssignee: project.translationAssignee || '',
+    translationDeadline: project.translationDeadline || null,
+    translationNotes: project.translationNotes || '',
+    lqaAssignee: project.lqaAssignee || '',
+    lqaDeadline: project.lqaDeadline || null,
+    lqaNotes: project.lqaNotes || '',
+  };
 };
 </script>
 
 <style scoped>
-.project-management-container {
-  padding: 20px;
-}
 
-h2 {
-  margin-bottom: 24px;
-  color: var(--color-text-1);
-}
-
-.action-bar {
-  display: flex;
-  margin-bottom: 16px;
-}
-
-.empty-state {
-  padding: 40px 0;
-}
-
-:deep(.arco-table-th) {
-  background-color: var(--color-fill-2);
-}
-
-:deep(.arco-descriptions-item-label) {
-  width: 200px;
-}
-</style> 
+</style>

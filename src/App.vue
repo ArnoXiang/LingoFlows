@@ -179,8 +179,8 @@
         </a-layout-content>
         <a-layout-footer>
           <div class="footer-content">
-            <p>© 2023 LingoFlows - Collaborative Localization Management System</p>
-            <p>Developed by Yizhuo Xiang</p>
+            <p style="color: black;">© 2025 LingoFlows - Collaborative Localization Management Platform</p>
+            <p style="color: black;">Developed by Yizhuo Xiang</p>
           </div>
         </a-layout-footer>
       </a-layout>

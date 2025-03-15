@@ -20,7 +20,8 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SECRET_KEY'] = 'lingoflows_secret_key'
 app.config['JWT_EXPIRATION_DELTA'] = timedelta(days=1)
 
-CORS(app)
+# 正确配置CORS，允许所有来源
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 # 配置 MySQL 数据库连接
 db = pymysql.connect(
@@ -232,6 +233,9 @@ def update_project(project_id):
     user_role = request.user.get('role')
     user_id = request.user.get('user_id')
     
+    print(f"更新项目 - 项目ID: {project_id}, 用户角色: {user_role}, 用户ID: {user_id}")
+    print(f"更新数据: {data}")
+    
     # 检查用户是否有权限更新此项目
     with db.cursor() as cur:
         if user_role == 'LM':
@@ -245,59 +249,175 @@ def update_project(project_id):
         if not project:
             return jsonify({"error": "Project not found or you don't have permission"}), 404
     
-    # 从请求中提取项目数据
-    update_fields = []
-    update_values = []
-    
-    # 检查并添加更新字段
-    if 'projectName' in data:
-        update_fields.append("projectName = %s")
-        update_values.append(data['projectName'])
-    
-    if 'projectStatus' in data:
-        update_fields.append("projectStatus = %s")
-        update_values.append(data['projectStatus'])
-    
-    if 'requestName' in data:
-        update_fields.append("requestName = %s")
-        update_values.append(data['requestName'])
-    
-    if 'projectManager' in data:
-        update_fields.append("projectManager = %s")
-        update_values.append(data['projectManager'])
-    
-    if 'taskTranslation' in data:
-        update_fields.append("taskTranslation = %s")
-        update_values.append(data['taskTranslation'])
-    
-    if 'taskLQA' in data:
-        update_fields.append("taskLQA = %s")
-        update_values.append(data['taskLQA'])
-    
-    if 'taskTranslationUpdate' in data:
-        update_fields.append("taskTranslationUpdate = %s")
-        update_values.append(data['taskTranslationUpdate'])
-    
-    if 'taskLQAReportFinalization' in data:
-        update_fields.append("taskLQAReportFinalization = %s")
-        update_values.append(data['taskLQAReportFinalization'])
-    
-    # 如果没有要更新的字段，返回错误
-    if not update_fields:
-        return jsonify({"error": "No fields to update"}), 400
-    
-    # 构建更新SQL
-    sql = "UPDATE projectname SET " + ", ".join(update_fields) + " WHERE id = %s"
-    update_values.append(project_id)
-    
-    # 执行更新
-    with db.cursor() as cur:
-        cur.execute(sql, update_values)
-        db.commit()
-        if cur.rowcount == 0:
-            return jsonify({"error": "Project not found or no changes made"}), 404
-    
-    return jsonify({"message": "Project updated successfully"})
+    try:
+        # 从请求中提取项目数据
+        update_fields = []
+        update_values = []
+        
+        # 检查并添加更新字段 - 基本信息
+        if 'projectName' in data:
+            update_fields.append("projectName = %s")
+            update_values.append(data['projectName'])
+        
+        if 'projectStatus' in data:
+            update_fields.append("projectStatus = %s")
+            update_values.append(data['projectStatus'])
+        
+        if 'requestName' in data:
+            update_fields.append("requestName = %s")
+            update_values.append(data['requestName'])
+        
+        if 'projectManager' in data:
+            update_fields.append("projectManager = %s")
+            update_values.append(data['projectManager'])
+        
+        # 检查并添加更新字段 - 任务状态
+        if 'taskTranslation' in data:
+            update_fields.append("taskTranslation = %s")
+            update_values.append(data['taskTranslation'])
+        
+        if 'taskLQA' in data:
+            update_fields.append("taskLQA = %s")
+            update_values.append(data['taskLQA'])
+        
+        if 'taskTranslationUpdate' in data:
+            update_fields.append("taskTranslationUpdate = %s")
+            update_values.append(data['taskTranslationUpdate'])
+        
+        if 'taskLQAReportFinalization' in data:
+            update_fields.append("taskLQAReportFinalization = %s")
+            update_values.append(data['taskLQAReportFinalization'])
+        
+        # 检查并添加更新字段 - 任务详细信息
+        if 'translationAssignee' in data:
+            update_fields.append("translationAssignee = %s")
+            update_values.append(data['translationAssignee'])
+        
+        if 'translationDeadline' in data:
+            update_fields.append("translationDeadline = %s")
+            try:
+                if data['translationDeadline']:
+                    if isinstance(data['translationDeadline'], str):
+                        date_str = data['translationDeadline'].split('T')[0] if 'T' in data['translationDeadline'] else data['translationDeadline']
+                        update_values.append(date_str)
+                    else:
+                        update_values.append(data['translationDeadline'])
+                else:
+                    update_values.append(None)
+            except Exception as e:
+                print(f"处理翻译截止日期时出错: {e}")
+                update_values.append(None)
+        
+        if 'translationNotes' in data:
+            update_fields.append("translationNotes = %s")
+            update_values.append(data['translationNotes'])
+        
+        if 'lqaAssignee' in data:
+            update_fields.append("lqaAssignee = %s")
+            update_values.append(data['lqaAssignee'])
+        
+        if 'lqaDeadline' in data:
+            update_fields.append("lqaDeadline = %s")
+            try:
+                if data['lqaDeadline']:
+                    if isinstance(data['lqaDeadline'], str):
+                        date_str = data['lqaDeadline'].split('T')[0] if 'T' in data['lqaDeadline'] else data['lqaDeadline']
+                        update_values.append(date_str)
+                    else:
+                        update_values.append(data['lqaDeadline'])
+                else:
+                    update_values.append(None)
+            except Exception as e:
+                print(f"处理LQA截止日期时出错: {e}")
+                update_values.append(None)
+        
+        if 'lqaNotes' in data:
+            update_fields.append("lqaNotes = %s")
+            update_values.append(data['lqaNotes'])
+        
+        # 检查并添加更新字段 - 其他信息
+        if 'sourceLanguage' in data:
+            update_fields.append("sourceLanguage = %s")
+            update_values.append(data['sourceLanguage'])
+        
+        if 'targetLanguages' in data:
+            update_fields.append("targetLanguages = %s")
+            update_values.append(data['targetLanguages'])
+        
+        if 'wordCount' in data:
+            update_fields.append("wordCount = %s")
+            update_values.append(data['wordCount'])
+        
+        if 'expectedDeliveryDate' in data:
+            update_fields.append("expectedDeliveryDate = %s")
+            # 确保日期格式正确
+            try:
+                # 尝试解析日期
+                if data['expectedDeliveryDate']:
+                    # 如果是日期对象的字符串表示，尝试转换为日期对象
+                    if isinstance(data['expectedDeliveryDate'], str):
+                        # 移除可能的时区信息
+                        date_str = data['expectedDeliveryDate'].split('T')[0] if 'T' in data['expectedDeliveryDate'] else data['expectedDeliveryDate']
+                        update_values.append(date_str)
+                    else:
+                        update_values.append(data['expectedDeliveryDate'])
+                else:
+                    update_values.append(None)
+            except Exception as e:
+                print(f"处理日期时出错: {e}")
+                update_values.append(None)
+        
+        if 'additionalRequirements' in data:
+            update_fields.append("additionalRequirements = %s")
+            update_values.append(data['additionalRequirements'])
+        
+        # 如果没有要更新的字段，返回错误
+        if not update_fields:
+            return jsonify({"error": "No fields to update"}), 400
+        
+        # 构建更新SQL
+        sql = "UPDATE projectname SET " + ", ".join(update_fields) + " WHERE id = %s"
+        update_values.append(project_id)
+        
+        print(f"更新SQL: {sql}")
+        print(f"更新值: {update_values}")
+        
+        # 执行更新
+        with db.cursor() as cur:
+            # 首先检查表是否有必要的字段
+            try:
+                cur.execute("SHOW COLUMNS FROM projectname LIKE 'translationAssignee'")
+                has_translation_assignee = cur.fetchone() is not None
+                
+                if not has_translation_assignee:
+                    # 添加必要的字段
+                    print("添加任务详细信息字段到projectname表")
+                    cur.execute("""
+                        ALTER TABLE projectname 
+                        ADD COLUMN translationAssignee VARCHAR(100),
+                        ADD COLUMN translationDeadline DATE,
+                        ADD COLUMN translationNotes TEXT,
+                        ADD COLUMN lqaAssignee VARCHAR(100),
+                        ADD COLUMN lqaDeadline DATE,
+                        ADD COLUMN lqaNotes TEXT
+                    """)
+                    db.commit()
+                    print("成功添加字段")
+            except Exception as e:
+                print(f"检查或添加字段时出错: {e}")
+                # 继续执行，即使添加字段失败
+            
+            # 执行更新
+            cur.execute(sql, update_values)
+            db.commit()
+            if cur.rowcount == 0:
+                return jsonify({"error": "Project not found or no changes made"}), 404
+        
+        return jsonify({"message": "Project updated successfully"})
+    except Exception as e:
+        print(f"更新项目时出错: {e}")
+        db.rollback()
+        return jsonify({"error": f"Failed to update project: {str(e)}"}), 500
 
 @app.route('/api/projects/<int:project_id>', methods=['DELETE'])
 @token_required
