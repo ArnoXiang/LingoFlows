@@ -1,69 +1,55 @@
 import pymysql
+import json
+
+# 连接数据库
+conn = pymysql.connect(
+    host='localhost',
+    user='root',
+    password='root',
+    database='l10n_management',
+    cursorclass=pymysql.cursors.DictCursor
+)
 
 try:
-    # 连接数据库
-    db = pymysql.connect(
-        host='localhost',
-        user='root',
-        password='root',
-        database='l10n_management',
-        cursorclass=pymysql.cursors.DictCursor
-    )
-    
-    print("Database connection successful!")
-    
-    # 查询用户表
-    with db.cursor() as cur:
-        # 检查users表是否存在
-        cur.execute("SHOW TABLES LIKE 'users'")
-        if cur.fetchone():
-            print("Users table exists! Dropping it...")
-            
-            # 删除旧的用户表
-            cur.execute("DROP TABLE users")
-            db.commit()
-            print("Users table dropped successfully!")
+    with conn.cursor() as cursor:
+        print("查询项目表")
+        cursor.execute('SELECT id, projectName FROM projectname')
+        projects = cursor.fetchall()
+        print(json.dumps(projects, indent=2, default=str))
         
-        # 创建新的用户表
-        print("Creating new users table...")
-        cur.execute("""
-            CREATE TABLE users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(50) NOT NULL UNIQUE,
-                password VARCHAR(100) NOT NULL,
-                name VARCHAR(100) NOT NULL,
-                role ENUM('LM', 'BO') NOT NULL,
-                email VARCHAR(100),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        print("\n查询文件表")
+        cursor.execute('SELECT id, filename, originalName FROM files WHERE isDeleted = FALSE')
+        files = cursor.fetchall()
+        print(json.dumps(files, indent=2, default=str))
         
-        # 添加默认用户
-        print("Adding default users...")
-        cur.execute("""
-            INSERT INTO users (username, password, name, role, email)
-            VALUES 
-            ('admin', 'admin123', 'Admin User', 'LM', 'admin@example.com'),
-            ('bo1', 'bo123', 'Business Owner 1', 'BO', 'bo1@example.com'),
-            ('bo2', 'bo123', 'Business Owner 2', 'BO', 'bo2@example.com')
-        """)
+        print("\n查询项目文件表")
+        cursor.execute('SELECT id, projectId, fileType FROM project_files')
+        project_files = cursor.fetchall()
+        print(json.dumps(project_files, indent=2, default=str))
         
-        db.commit()
-        print("Default users added successfully!")
+        print("\n查询项目文件映射表")
+        cursor.execute('SELECT id, project_file_id, file_id FROM project_file_mappings')
+        mappings = cursor.fetchall()
+        print(json.dumps(mappings, indent=2, default=str))
         
-        # 查询新的用户
-        cur.execute("SELECT * FROM users")
-        users = cur.fetchall()
+        # 关键信息：检查项目ID为最近项目的文件关联
+        print("\n项目文件关联检查")
+        cursor.execute('''
+            SELECT 
+                p.id as project_id,
+                p.projectName as project_name,
+                pf.id as project_file_id,
+                f.id as file_id,
+                f.originalName as original_name
+            FROM projectname p
+            LEFT JOIN project_files pf ON p.id = pf.projectId
+            LEFT JOIN project_file_mappings pfm ON pf.id = pfm.project_file_id
+            LEFT JOIN files f ON pfm.file_id = f.id
+            WHERE p.id > 15
+            ORDER BY p.id DESC
+        ''')
+        related_files = cursor.fetchall()
+        print(json.dumps(related_files, indent=2, default=str))
         
-        if users:
-            print(f"Found {len(users)} users:")
-            for user in users:
-                print(f"ID: {user['id']}, Username: {user['username']}, Password: {user['password']}, Role: {user['role']}")
-        else:
-            print("No users found in the table.")
-    
-    # 关闭数据库连接
-    db.close()
-    
-except Exception as e:
-    print(f"Error: {e}") 
+finally:
+    conn.close() 

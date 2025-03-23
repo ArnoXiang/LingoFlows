@@ -319,30 +319,18 @@ export default defineComponent({
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
       if (token) {
-        console.log('找到本地存储的令牌，尝试自动登录');
         try {
           // 设置默认请求头
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          console.log('已设置Authorization头:', `Bearer ${token}`);
           
           // 获取当前用户信息
-          console.log('发送请求到 /api/users/current');
           const response = await axios.get('http://localhost:5000/api/users/current');
-          console.log('获取用户信息成功:', response.data);
           
           // 更新用户信息
           userId.value = Number(response.data.id); // 确保转换为数字类型
           userName.value = response.data.name;
           userRole.value = response.data.role;
           isLoggedIn.value = true;
-          
-          console.log('用户信息已更新:', {
-            userId: userId.value,
-            userIdType: typeof userId.value,
-            userName: userName.value,
-            userRole: userRole.value,
-            isLoggedIn: isLoggedIn.value
-          });
           
           Message.success({
             content: '自动登录成功 / Auto login successful',
@@ -353,17 +341,10 @@ export default defineComponent({
           fetchProjectData();
         } catch (error) {
           console.error('自动登录失败:', error);
-          if (error.response) {
-            console.error('错误响应:', error.response.data);
-            console.error('状态码:', error.response.status);
-          }
           // 清除无效令牌
           localStorage.removeItem('token');
           axios.defaults.headers.common['Authorization'] = '';
-          console.log('已清除无效令牌和Authorization头');
         }
-      } else {
-        console.log('未找到本地存储的令牌，跳过自动登录');
       }
     };
 
@@ -395,8 +376,7 @@ export default defineComponent({
       }
     };
 
-    const handleBeforeOk = async () => {
-      // 不使用Modal的before-ok回调来处理异步操作而是直接在函数中处理登录逻辑
+    const handleBeforeOk = async (done) => {
       if (!form.username || !form.password) {
         Message.error('请输入用户名和密码 / Please enter username and password');
         return;
@@ -405,14 +385,11 @@ export default defineComponent({
       loginLoading.value = true;
       
       try {
-        console.log('尝试登录，用户名:', form.username);
         // 调用登录API
         const response = await axios.post('http://localhost:5000/api/login', {
           username: form.username,
           password: form.password
         });
-        
-        console.log('登录成功，响应数据:', response.data);
         
         // 保存令牌到本地存储
         const token = response.data.token;
@@ -420,7 +397,6 @@ export default defineComponent({
         
         // 设置默认请求头
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        console.log('已设置Authorization头:', `Bearer ${token}`);
         
         // 更新用户信息
         const user = response.data.user;
@@ -428,14 +404,6 @@ export default defineComponent({
         userName.value = user.name;
         userRole.value = user.role;
         isLoggedIn.value = true;
-        
-        console.log('用户信息已更新:', {
-          userId: userId.value,
-          userIdType: typeof userId.value,
-          userName: userName.value,
-          userRole: userRole.value,
-          isLoggedIn: isLoggedIn.value
-        });
         
         // 清空表单并关闭弹窗
         form.username = '';
@@ -451,18 +419,26 @@ export default defineComponent({
         fetchProjectData();
       } catch (error) {
         console.error('登录失败:', error);
-        if (error.response) {
-          console.error('错误响应:', error.response.data);
-          console.error('状态码:', error.response.status);
-        }
         
+        // 构建错误消息
         let errorMsg = '登录失败 / Login failed';
         
-        if (error.response && error.response.data && error.response.data.error) {
-          errorMsg = error.response.data.error;
+        if (error.response) {
+          if (error.response.status === 401) {
+            errorMsg = '用户名或密码错误 / Invalid username or password';
+          } else if (error.response.status >= 500) {
+            errorMsg = '服务器错误，请稍后再试 / Server error, please try again later';
+          } else if (error.response.data && error.response.data.error) {
+            errorMsg = error.response.data.error;
+          }
+        } else if (error.request) {
+          errorMsg = '无法连接到服务器，请检查网络 / Cannot connect to server, please check your network';
         }
         
-        Message.error(errorMsg);
+        Message.error({
+          content: errorMsg,
+          duration: 3000,
+        });
       } finally {
         loginLoading.value = false;
       }
@@ -605,10 +581,8 @@ export default defineComponent({
         const headers = {
           'Authorization': `Bearer ${token}`
         };
-        console.log('App.vue - 发送请求到 /api/projects，带有Authorization头');
         
         const response = await axios.get('http://localhost:5000/api/projects', { headers });
-        console.log('App.vue - 获取项目数据成功:', response.data);
         
         // 处理项目数据，确保created_by字段是数字类型
         if (Array.isArray(response.data)) {
@@ -619,7 +593,6 @@ export default defineComponent({
             };
           });
           projectData.value = processedData;
-          console.log('App.vue - 处理后的项目数据:', processedData);
         } else {
           projectData.value = response.data;
         }
@@ -658,7 +631,7 @@ export default defineComponent({
       filteredMenuItems,
       hasPermission,
       loginLoading,
-      userId, // 确保userId被导出
+      userId,
     };
   }
 });
