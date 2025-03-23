@@ -311,12 +311,7 @@ export default defineComponent({
       return [];
     });
 
-    const onCollapse = (val, type) => {
-      const content = type === 'responsive' ? '触发响应式收缩' : '点击触发收缩';
-      Message.info({
-        content,
-        duration: 2000,
-      });
+    const onCollapse = (val) => {
       collapsed.value = val;
     };
 
@@ -401,8 +396,7 @@ export default defineComponent({
     };
 
     const handleBeforeOk = async () => {
-      // 不使用Modal的before-ok回调来处理异步操作
-      // 而是直接在函数中处理登录逻辑
+      // 不使用Modal的before-ok回调来处理异步操作而是直接在函数中处理登录逻辑
       if (!form.username || !form.password) {
         Message.error('请输入用户名和密码 / Please enter username and password');
         return;
@@ -488,22 +482,22 @@ export default defineComponent({
       
       switch (key) {
         case '0_1':
-          targetPage = 'menu1'; // AI助手
+          targetPage = 'menu1';
           break;
         case '0_2':
-          targetPage = 'translator'; // 翻译工具
+          targetPage = 'translator'; 
           break;
         case '1_1':
-          targetPage = 'request_management'; // 请求管理
+          targetPage = 'request_management'; 
           break;
         case '1_2':
-          targetPage = 'project_management'; // 项目管理
+          targetPage = 'project_management'; 
           break;
         case '1_3':
-          targetPage = 'financial_management'; // 财务管理
+          targetPage = 'financial_management'; 
           break;
         case '2':
-          targetPage = 'settings'; // 系统设置
+          targetPage = 'settings'; 
           break;
         default:
           targetPage = 'menu1';
@@ -565,7 +559,7 @@ export default defineComponent({
         scrollToBottom(); // 滚动到底部
       }
 
-      userInput.value = ''; // 清空输入框
+      userInput.value = ''; // 清空
     };
 
     const displayAssistantResponse = (response) => {
@@ -768,20 +762,20 @@ export default defineComponent({
   padding: 10px;
   max-width: 70%;
   word-wrap: break-word;
-  display: inline-block; /* 使气泡根据内容自适应宽度 */
+  display: inline-block; 
 }
 
 .user-message {
-  background-color: #d1e7dd; /* 用户消息气泡颜色 */
-  align-self: flex-end; /* 用户消息右对齐 */
-  margin-left: auto; /* 将用户气泡推到右侧 */
-  max-width: 80%; /* 设置最大宽度 */
+  background-color: #d1e7dd; 
+  align-self: flex-end; 
+  margin-left: auto; 
+  max-width: 80%; 
 }
 
 .assistant-message {
-  background-color: #f8d7da; /* 助手消息气泡颜色 */
-  align-self: flex-start; /* 助手消息左对齐 */
-  margin-right: auto; /* 将助手气泡推到左侧 */
-  max-width: 80%; /* 设置最大宽度 */
+  background-color: #f8d7da;
+  align-self: flex-start;
+  margin-right: auto; 
+  max-width: 80%; 
 }
 </style>

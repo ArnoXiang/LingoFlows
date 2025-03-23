@@ -468,7 +468,7 @@ const columns = [
   },
 ];
 
-// 状态和数据
+// 状态
 const projects = ref([]);
 const loading = ref(false);
 const searchKeyword = ref('');
@@ -484,7 +484,7 @@ const emailAttachments = ref([]);
 const projectFiles = ref([]);
 const isEditing = ref(false);
 
-// 表单数据
+// 邮件表单
 const emailForm = reactive({
   to: '',
   cc: '',
@@ -556,8 +556,8 @@ const canViewProject = (project) => {
   }
   
   if (props.userRole === 'LM') {
-    console.log('canViewProject - 用户是LM，有权限');
-    return true; // LM可以查看所有项目
+    console.log('canViewProject - 用户是PM，有权限');
+    return true; // PM可以查看所有项目
   }
   
   // BO只能查看自己的项目
@@ -597,8 +597,8 @@ const canPerformAction = (project) => {
   }
   
   if (props.userRole === 'LM') {
-    console.log('canPerformAction - 用户是LM，有权限');
-    return true; // LM可以执行所有操作
+    console.log('canPerformAction - 用户是PM，有权限');
+    return true; // PM可以执行所有操作
   }
   
   // BO只能操作自己的项目
@@ -679,11 +679,11 @@ watch(() => props.projectData, (newData) => {
   }
 }, { immediate: true });
 
-// 方法
+
 const fetchProjects = async () => {
   if (!props.userId) {
     console.log('未获取项目数据：用户ID为空');
-    return; // 如果没有用户ID，不获取数据
+    return; // 没有用户ID，不获取
   }
   
   console.log(`开始获取项目数据，用户ID: ${props.userId}, 用户角色: ${props.userRole}`);
