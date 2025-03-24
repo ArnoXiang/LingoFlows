@@ -122,15 +122,7 @@
           <a-button type="text" size="small" @click="uploadFiles(record)" v-if="props.userRole === 'LM' || (props.userRole === 'BO' && canPerformAction(record))">
             上传文件 / Upload Files
           </a-button>
-          <a-button @click="() => {
-              currentProject.value = record;
-              refreshFilesWithMapping();
-            }" 
-            type="success" 
-            :loading="refreshingFiles"
-          >
-            检查文件 / Check Files
-          </a-button>
+          <!-- "检查文件"按钮已被删除 -->
         </a-space>
       </template>
     </a-table>
@@ -831,7 +823,8 @@ const fetchProjects = async () => {
 
 const refreshProjects = () => {
   fetchProjects();
-  Message.success('项目列表已刷新 / Project list refreshed');
+  // 删除项目列表已刷新的消息，但保留刷新功能
+  // Message.success('项目列表已刷新 / Project list refreshed');
 };
 
 const handleSearch = () => {
@@ -1393,75 +1386,12 @@ const submitUploadFiles = async () => {
       
       // 自动执行文件映射修复，确保文件关联正确
       console.log('自动执行文件映射修复...');
-      Message.loading({
-        content: '正在修复文件映射，请稍候... / Fixing file mappings, please wait...',
-        duration: 0
-      });
-      
+      // 调用已有的fixFileMappings函数，以静默模式运行
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.error('未找到认证令牌，无法修复文件映射');
-          return;
-        }
-        
-        // 添加重试机制
-        let retries = 0;
-        const maxRetries = 2;
-        let success = false;
-        let fixResponse;
-        
-        while (!success && retries <= maxRetries) {
-          try {
-            if (retries > 0) {
-              console.log(`尝试第 ${retries} 次重试修复...`);
-            }
-            
-            fixResponse = await axios.post('http://localhost:5000/api/fix-file-mappings', {}, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              },
-              timeout: 30000 // 30秒超时
-            });
-            
-            success = true;
-          } catch (error) {
-            retries++;
-            console.error(`修复尝试 ${retries} 失败:`, error);
-            
-            if (retries > maxRetries) {
-              throw error; // 重试次数用完，抛出错误
-            }
-            
-            // 等待1秒后重试
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-        
-        console.log('修复结果:', fixResponse.data);
-        
-        if (fixResponse.data.status === 'success') {
-          const newMappings = fixResponse.data.after_count - fixResponse.data.before_count;
-          
-          if (newMappings > 0) {
-            Message.success({
-              content: `文件映射已自动修复! 新增 ${newMappings} 个映射 / File mappings fixed! Added ${newMappings} mappings`,
-              duration: 5000
-            });
-          } else {
-            console.log('没有需要修复的文件映射');
-          }
-          
-          // 再次刷新项目文件列表，确保显示最新数据
-          await fetchProjectFiles(currentProject.value.id);
-        } else {
-          console.warn('修复结果未成功:', fixResponse.data);
-        }
+        await fixFileMappings(true); // true表示静默模式，不显示任何提示
       } catch (error) {
         console.error('自动修复文件映射失败:', error);
-        // 不向用户显示错误，避免干扰正常流程
-      } finally {
-        Message.destroy(); // 清除加载消息
+        // 静默模式下不显示错误
       }
     } else {
       throw new Error('上传失败 / Upload failed');
@@ -1877,23 +1807,32 @@ const deleteSelectedFiles = async (fileIds) => {
 const customRequest = (options) => {
   console.log('开始文件上传，options:', options);
   
-  // 检查file对象是否存在
-  if (!options || !options.file) {
-    console.error('错误: options或file为undefined', options);
-    if (options && options.onError) {
-      options.onError(new Error('文件对象不存在 / File object is missing'));
-    }
+  // 检查options是否存在
+  if (!options) {
+    console.error('错误: options为undefined');
     return;
   }
   
-  const { file, onProgress, onSuccess, onError } = options;
+  // 从options中获取所需属性和回调
+  const { onProgress, onSuccess, onError } = options;
   
-  // 检查file是否是File对象或原始文件
-  let actualFile = file;
-  if (file.file && typeof file.file === 'object') {
-    // Arco Design可能将文件封装在file.file中
-    console.log('文件被封装在file.file中，使用file.file');
-    actualFile = file.file;
+  // 获取文件对象 - ArcoVue组件中文件可能在fileItem.file中
+  let actualFile = null;
+  
+  if (options.file) {
+    // 标准方式
+    actualFile = options.file;
+    console.log('从options.file获取文件对象');
+  } else if (options.fileItem && options.fileItem.file) {
+    // ArcoVue方式
+    actualFile = options.fileItem.file;
+    console.log('从options.fileItem.file获取文件对象');
+  } else {
+    console.error('错误: 无法找到文件对象', options);
+    if (onError) {
+      onError(new Error('文件对象不存在 / File object is missing'));
+    }
+    return;
   }
   
   // 检查文件对象是否有name属性
@@ -1929,108 +1868,70 @@ const customRequest = (options) => {
   }
   console.log('验证令牌:', token.substring(0, 10) + '...');
   
-  // 发送上传请求
-  const xhr = new XMLHttpRequest();
-  
-  xhr.upload.addEventListener('progress', (event) => {
-    const percent = event.loaded / event.total * 100;
-    console.log(`上传进度: ${percent.toFixed(2)}%`);
-    onProgress({ percent });
-  });
-  
-  xhr.addEventListener('load', () => {
-    console.log('上传请求完成，状态:', xhr.status, xhr.statusText);
-    
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        const response = JSON.parse(xhr.responseText);
-        console.log('上传成功，响应:', response);
-        onSuccess(response);
-      } catch (error) {
-        console.error('解析上传响应失败:', error, '原始响应:', xhr.responseText);
-        onError(new Error('解析响应失败 / Failed to parse response'));
-      }
-    } else {
-      console.error('上传失败，状态码:', xhr.status, '响应:', xhr.responseText);
+  // 使用fetch API替代XMLHttpRequest
+  const uploadWithFetch = async () => {
+    try {
+      console.log('使用fetch API上传文件:', actualFile.name);
       
-      // 处理认证错误
-      if (xhr.status === 401) {
-        console.error('认证失败，需要重新登录');
-        Message.error({
-          content: '认证已过期，请重新登录 / Authentication expired, please login again',
-          duration: 5000
-        });
-        onError(new Error('认证已过期，请重新登录 / Authentication expired, please login again'));
+      // 创建请求
+      const response = await fetch('http://localhost:5000/api/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // 注意：不要设置Content-Type，fetch会自动设置
+        },
+        body: formData
+      });
+      
+      console.log('上传请求完成，状态:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('上传成功，响应:', result);
+        onSuccess(result);
+        Message.success(`文件 ${actualFile.name} 上传成功 / File uploaded successfully`);
+      } else {
+        // 处理错误
+        let errorMessage = '上传失败 / Upload failed';
         
-        // 可以选择重定向到登录页
-        // setTimeout(() => { window.location.href = '/login'; }, 2000);
-        return;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || `上传失败 (${response.status}) / Upload failed`;
+          console.error('上传失败，服务器返回:', errorData);
+        } catch (e) {
+          console.error('无法解析错误响应:', e);
+          errorMessage = `上传失败 (${response.status}: ${response.statusText}) / Upload failed`;
+        }
+        
+        // 处理特定错误
+        if (response.status === 401) {
+          errorMessage = '认证已过期，请重新登录 / Authentication expired, please login again';
+        }
+        
+        console.error(errorMessage);
+        onError(new Error(errorMessage));
+        
+        // 只显示一次错误消息
+        Message.error({
+          content: errorMessage,
+          duration: 5000
+        });
       }
+    } catch (error) {
+      console.error('上传过程中发生网络错误:', error);
+      const errorMessage = '网络错误，请检查网络连接 / Network error, please check your connection';
+      onError(new Error(errorMessage));
       
-      // 处理其他错误
-      try {
-        const errorResponse = JSON.parse(xhr.responseText);
-        const errorMessage = errorResponse.error || xhr.statusText;
-        console.error('服务器返回错误:', errorMessage);
-        onError(new Error(`上传失败 (${xhr.status}): ${errorMessage}`));
-        Message.error({
-          content: `上传失败: ${errorMessage}`,
-          duration: 5000
-        });
-      } catch (e) {
-        onError(new Error(`上传失败 (${xhr.status}): ${xhr.statusText}`));
-        Message.error({
-          content: `上传失败 (${xhr.status}): ${xhr.statusText}`,
-          duration: 5000
-        });
-      }
+      // 只显示一次错误消息
+      Message.error({
+        content: errorMessage,
+        duration: 5000
+      });
     }
-  });
-  
-  xhr.addEventListener('error', (event) => {
-    console.error('上传发生网络错误:', event);
-    onError(new Error('网络错误，请检查网络连接 / Network error, please check your connection'));
-    Message.error({
-      content: '网络错误，请检查网络连接 / Network error, please check your connection',
-      duration: 5000
-    });
-  });
-  
-  xhr.addEventListener('abort', () => {
-    console.log('上传被取消');
-    onError(new Error('上传被取消 / Upload aborted'));
-  });
-  
-  const url = 'http://localhost:5000/api/upload';
-  console.log('准备发送POST请求到:', url);
-  xhr.open('POST', url);
-  xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-  console.log('已设置Authorization头');
-  
-  // 添加一个超时处理
-  xhr.timeout = 30000; // 30秒超时
-  xhr.ontimeout = () => {
-    console.error('上传请求超时');
-    onError(new Error('请求超时，请稍后重试 / Request timeout, please try again later'));
-    Message.error({
-      content: '请求超时，请稍后重试 / Request timeout, please try again later',
-      duration: 5000
-    });
   };
   
-  // 发送请求
-  try {
-    console.log('发送FormData，包含文件:', actualFile.name);
-    xhr.send(formData);
-    console.log('请求已发送');
-  } catch (error) {
-    console.error('发送请求时出错:', error);
-    onError(new Error(`发送请求失败: ${error.message}`));
-    Message.error({
-      content: `发送请求失败: ${error.message}`,
-      duration: 5000
-    });
-  }
+  // 执行上传
+  uploadWithFetch();
 };
 
 const handleUploadCancel = () => {
@@ -2052,6 +1953,7 @@ const runDiagnostics = async () => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
+      // 保留认证错误消息
       Message.error('请先登录 / Please login first');
       return;
     }
@@ -2066,25 +1968,31 @@ const runDiagnostics = async () => {
     console.log('诊断结果:', response.data);
     diagnosticsResult.value = response.data;
     
-    // 显示诊断结果
-    Message.info({
-      content: `诊断完成: 找到 ${response.data.file_count} 个文件, ${response.data.mapping_count} 个文件映射`,
-      duration: 5000
-    });
+    // 删除诊断结果提示
+    // Message.info({
+    //   content: `诊断完成: 找到 ${response.data.file_count} 个文件, ${response.data.mapping_count} 个文件映射`,
+    //   duration: 5000
+    // });
     
-    // 如果文件映射数量小于文件数量，说明有未映射的文件，建议修复
+    // 如果文件映射数量小于文件数量，说明有未映射的文件，自动修复而不询问
     if (response.data.mapping_count < response.data.file_count) {
       const unmappedCount = response.data.file_count - response.data.mapping_count;
-      const confirmFix = await Message.confirm({
-        title: '发现问题 / Problem Found',
-        content: `发现 ${unmappedCount} 个未映射的文件，是否进行自动修复？/ Found ${unmappedCount} unmapped files, run automatic fix?`,
-        okText: '修复 / Fix',
-        cancelText: '取消 / Cancel'
-      });
+      console.log(`发现 ${unmappedCount} 个未映射的文件，自动进行修复`);
       
-      if (confirmFix) {
-        await fixFileMappings();
-      }
+      // 删除确认对话框，直接进行修复
+      // const confirmFix = await Message.confirm({
+      //   title: '发现问题 / Problem Found',
+      //   content: `发现 ${unmappedCount} 个未映射的文件，是否进行自动修复？/ Found ${unmappedCount} unmapped files, run automatic fix?`,
+      //   okText: '修复 / Fix',
+      //   cancelText: '取消 / Cancel'
+      // });
+      
+      // if (confirmFix) {
+      //   await fixFileMappings();
+      // }
+      
+      // 直接修复，使用静默模式
+      await fixFileMappings(true);
     }
     
     // 尝试刷新数据
@@ -2095,25 +2003,33 @@ const runDiagnostics = async () => {
     
   } catch (error) {
     console.error('运行诊断失败:', error);
+    // 保留错误消息，这是用户需要知道的
     Message.error('运行诊断失败 / Failed to run diagnostics');
   } finally {
     diagnosing.value = false;
   }
 };
 
-const fixFileMappings = async () => {
+const fixFileMappings = async (silentMode = false) => {
   fixing.value = true;
   
   try {
     console.log('正在修复文件映射关系...');
-    Message.loading({
-      content: '正在修复文件映射，请稍候... / Fixing file mappings, please wait...',
-      duration: 0
-    });
+    
+    // 删除加载消息，即使在非静默模式下也不显示
+    // if (!silentMode) {
+    //   Message.loading({
+    //     content: '正在修复文件映射，请稍候... / Fixing file mappings, please wait...',
+    //     duration: 0
+    //   });
+    // }
     
     const token = localStorage.getItem('token');
     if (!token) {
-      Message.error('请先登录 / Please login first');
+      // 仅保留登录错误消息，这是必要的
+      if (!silentMode) {
+        Message.error('请先登录 / Please login first');
+      }
       return;
     }
     
@@ -2127,10 +2043,13 @@ const fixFileMappings = async () => {
       try {
         if (retries > 0) {
           console.log(`尝试第 ${retries} 次重试修复...`);
-          Message.info({
-            content: `第 ${retries} 次重试修复... / Retry ${retries}...`,
-            duration: 2000
-          });
+          // 删除重试消息
+          // if (!silentMode) {
+          //   Message.info({
+          //     content: `第 ${retries} 次重试修复... / Retry ${retries}...`,
+          //     duration: 2000
+          //   });
+          // }
         }
         
         response = await axios.post('http://localhost:5000/api/fix-file-mappings', {}, {
@@ -2159,10 +2078,13 @@ const fixFileMappings = async () => {
     if (response.data.status === 'success') {
       const newMappings = response.data.after_count - response.data.before_count;
       
-      Message.success({
-        content: `修复完成! 修复前: ${response.data.before_count} 映射, 修复后: ${response.data.after_count} 映射, 新增: ${newMappings} 映射`,
-        duration: 5000
-      });
+      // 删除修复完成消息
+      // if (!silentMode || newMappings > 0) {
+      //   Message.success({
+      //     content: `修复完成! 修复前: ${response.data.before_count} 映射, 修复后: ${response.data.after_count} 映射, 新增: ${newMappings} 映射`,
+      //     duration: 5000
+      //   });
+      // }
       
       // 尝试刷新项目数据
       await refreshProjects();
@@ -2172,37 +2094,51 @@ const fixFileMappings = async () => {
         await fetchProjectFiles(currentProject.value.id);
       }
       
-      // 执行另一次诊断以验证结果
-      setTimeout(async () => {
-        await runDiagnostics();
-      }, 1000);
+      // 只有在非静默模式下才执行自动诊断
+      if (!silentMode) {
+        // 执行另一次诊断以验证结果
+        setTimeout(async () => {
+          await runDiagnostics();
+        }, 1000);
+      }
       
     } else {
-      Message.error('修复失败 / Fix failed');
+      // 保留失败消息，这是必要的错误提示
+      if (!silentMode) {
+        Message.error('修复失败 / Fix failed');
+      }
     }
   } catch (error) {
     console.error('修复文件映射失败:', error);
     
-    let errorMessage = '修复文件映射失败 / Failed to fix file mappings';
-    if (error.response) {
-      errorMessage += `: ${error.response.data?.error || error.response.statusText}`;
-    } else if (error.message) {
-      errorMessage += `: ${error.message}`;
+    // 保留错误消息，这是必要的错误提示
+    if (!silentMode) {
+      let errorMessage = '修复文件映射失败 / Failed to fix file mappings';
+      if (error.response) {
+        errorMessage += `: ${error.response.data?.error || error.response.statusText}`;
+      } else if (error.message) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      Message.error({
+        content: errorMessage,
+        duration: 5000
+      });
     }
-    
-    Message.error({
-      content: errorMessage,
-      duration: 5000
-    });
   } finally {
     fixing.value = false;
-    Message.destroy();
+    
+    // 删除消息清理
+    // if (!silentMode) {
+    //   Message.destroy();
+    // }
   }
 };
 
 // 刷新文件列表并自动修复文件映射
 const refreshFilesWithMapping = async () => {
   if (!currentProject.value || !currentProject.value.id) {
+    // 保留错误消息，这是必要的
     Message.error('项目数据不存在 / Project data does not exist');
     return;
   }
@@ -2218,40 +2154,14 @@ const refreshFilesWithMapping = async () => {
     // 然后执行文件映射修复
     console.log('自动修复文件映射关系...');
     
-    const token = localStorage.getItem('token');
-    if (!token) {
-      Message.error('请先登录 / Please login first');
-      return;
-    }
-    
-    // 执行修复
-    try {
-      const response = await axios.post('http://localhost:5000/api/fix-file-mappings', {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        timeout: 30000 // 30秒超时
-      });
-      
-      console.log('修复结果:', response.data);
-      
-      if (response.data.status === 'success') {
-        const newMappings = response.data.after_count - response.data.before_count;
-        console.log(`文件映射已修复: ${newMappings} 个新映射`);
-        
-        // 再次刷新文件列表，确保显示最新数据
-        await fetchProjectFiles(currentProject.value.id);
-      } else {
-        console.log('文件列表刷新成功，但服务器返回非成功状态');
-      }
-    } catch (error) {
-      console.error('修复文件映射失败:', error);
-    }
+    // 调用已改进的fixFileMappings函数，使用静默模式
+    await fixFileMappings(true); // true表示静默模式，不显示消息
   } catch (error) {
     console.error('刷新文件列表失败:', error);
   } finally {
     refreshingFiles.value = false;
-    Message.destroy(); // 清除所有消息
+    // 删除消息清理，不需要显示任何消息
+    // Message.destroy();
   }
 };
 
@@ -2303,6 +2213,31 @@ const downloadAllProjectFiles = async () => {
     Message.error('批量下载文件失败 / Failed to download files');
   } finally {
     downloadingFiles.value = false;
+  }
+};
+
+// 添加一个静默版本的刷新函数，不显示加载提示
+const silentRefreshFilesWithMapping = async () => {
+  if (!currentProject.value || !currentProject.value.id) {
+    Message.error('项目数据不存在 / Project data does not exist');
+    return;
+  }
+  
+  refreshingFiles.value = true;
+  
+  try {
+    console.log('静默刷新文件列表并修复文件映射...');
+    
+    // 先刷新文件列表
+    await fetchProjectFiles(currentProject.value.id);
+    
+    // 然后执行文件映射修复（静默模式）
+    console.log('静默执行自动修复文件映射关系...');
+  } catch (error) {
+    console.error('刷新文件列表失败:', error);
+  } finally {
+    refreshingFiles.value = false;
+    Message.destroy(); // 清除所有消息
   }
 };
 </script>

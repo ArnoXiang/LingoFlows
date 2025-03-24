@@ -203,10 +203,11 @@ const handleFileChange = async (file, fileList) => {
 const fixFileMappings = async () => {
   try {
     console.log('自动修复文件映射关系...');
-    Message.loading({
-      content: '正在修复文件映射，请稍候... / Fixing file mappings, please wait...',
-      duration: 0
-    });
+    // 删除加载消息
+    // Message.loading({
+    //   content: '正在修复文件映射，请稍候... / Fixing file mappings, please wait...',
+    //   duration: 0
+    // });
     
     const token = localStorage.getItem('token');
     if (!token) {
@@ -252,11 +253,13 @@ const fixFileMappings = async () => {
     if (response.data.status === 'success') {
       const newMappings = response.data.after_count - response.data.before_count;
       
+      // 删除成功消息，只保留控制台日志
       if (newMappings > 0) {
-        Message.success({
-          content: `文件映射已自动修复! 新增 ${newMappings} 个映射 / File mappings fixed! Added ${newMappings} mappings`,
-          duration: 5000
-        });
+        // Message.success({
+        //   content: `文件映射已自动修复! 新增 ${newMappings} 个映射 / File mappings fixed! Added ${newMappings} mappings`,
+        //   duration: 5000
+        // });
+        console.log(`文件映射已自动修复! 新增 ${newMappings} 个映射`);
       } else {
         console.log('没有需要修复的文件映射');
       }
@@ -266,7 +269,8 @@ const fixFileMappings = async () => {
   } catch (error) {
     console.error('修复文件映射失败:', error);
   } finally {
-    Message.destroy();
+    // 删除消息清理
+    // Message.destroy();
   }
 };
 
