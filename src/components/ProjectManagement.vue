@@ -23,12 +23,25 @@
         placeholder="项目状态 / Project Status"
         style="width: 200px; margin-right: 16px;"
         allow-clear
+        @change="handleStatusChange"
       >
         <a-option value="all">全部 / All</a-option>
         <a-option value="pending">待处理 / Pending</a-option>
         <a-option value="in_progress">进行中 / In Progress</a-option>
         <a-option value="completed">已完成 / Completed</a-option>
         <a-option value="cancelled">已取消 / Cancelled</a-option>
+      </a-select>
+      <a-select
+        v-model="projectManagerFilter"
+        placeholder="项目经理 / Project Manager"
+        style="width: 200px; margin-right: 16px;"
+        allow-clear
+        @change="handleManagerChange"
+      >
+        <a-option value="all">全部 / All</a-option>
+        <a-option v-for="manager in uniqueProjectManagers" :key="manager" :value="manager">
+          {{ manager }}
+        </a-option>
       </a-select>
     </div>
     
@@ -508,7 +521,6 @@ const columns = [
     key: 'projectStatus',
     slotName: 'projectStatus',
     sortable: true,
-    filterable: true,
     resizable: true,
   },
   {
@@ -522,7 +534,6 @@ const columns = [
     dataIndex: 'projectManager',
     key: 'projectManager',
     sortable: true,
-    filterable: true,
     resizable: true,
   },
   {
@@ -573,6 +584,7 @@ const projects = ref([]);
 const loading = ref(false);
 const searchKeyword = ref('');
 const statusFilter = ref('all');
+const projectManagerFilter = ref('all');
 const drawerVisible = ref(false);
 const drawerTitle = ref('项目详情 / Project Details');
 const currentProject = ref(null);
@@ -713,6 +725,11 @@ const filteredProjects = computed(() => {
     result = result.filter(project => project.projectStatus === statusFilter.value);
   }
   
+  // 项目经理过滤
+  if (projectManagerFilter.value !== 'all') {
+    result = result.filter(project => project.projectManager === projectManagerFilter.value);
+  }
+  
   // 关键词搜索
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase();
@@ -725,6 +742,17 @@ const filteredProjects = computed(() => {
   
   console.log('ProjectManagement - 过滤后的项目数据:', result);
   return result;
+});
+
+// 获取唯一的项目经理列表
+const uniqueProjectManagers = computed(() => {
+  const managers = new Set();
+  projects.value.forEach(project => {
+    if (project.projectManager) {
+      managers.add(project.projectManager);
+    }
+  });
+  return Array.from(managers);
 });
 
 // 检查用户是否有权限查看项目
@@ -2563,6 +2591,14 @@ const handleEmailAttachmentChange = (options) => {
   
   // 更新附件列表
   emailAttachments.value = options.fileList;
+};
+
+const handleStatusChange = () => {
+  console.log('状态筛选变更为:', statusFilter.value);
+};
+
+const handleManagerChange = () => {
+  console.log('项目经理筛选变更为:', projectManagerFilter.value);
 };
 </script>
 
