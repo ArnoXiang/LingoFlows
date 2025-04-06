@@ -199,32 +199,25 @@ def get_projects():
     # 尝试从不同的键名获取用户ID
     user_id = request.user.get('user_id') or request.user.get('id')
     
-    # 检查是否有特殊的查询参数
-    role_param = request.args.get('role')
-    all_param = request.args.get('all')
-    fallback_param = request.args.get('fallback')
-    
     print(f"获取项目 - 用户角色: {user_role}, 用户ID: {user_id}")
-    print(f"查询参数: role={role_param}, all={all_param}, fallback={fallback_param}")
     print(f"完整的用户信息: {request.user}")
     
     with db.cursor() as cur:
-        # 如果是LM或FT角色，或者请求包含all=true参数，允许查看所有项目
-        if user_role in ['LM', 'FT'] or all_param == 'true' or fallback_param == 'true':
-            # LM/FT可以查看所有项目
-            print(f"{user_role}用户或特殊查询 - 查询所有项目")
+        if user_role == 'LM':
+            # LM可以查看所有项目
+            print("LM用户 - 查询所有项目")
             cur.execute("SELECT * FROM projectname")
         else:
             # BO只能查看自己提交的项目
-            print(f"非LM/FT用户 - 只查询用户ID为 {user_id} 的项目")
+            print(f"非LM用户 - 只查询用户ID为 {user_id} 的项目")
             cur.execute("SELECT * FROM projectname WHERE created_by = %s", (user_id,))
         
         projects = cur.fetchall()
         print(f"查询结果: 找到 {len(projects)} 个项目")
         
-        # 如果是LM/FT用户但没有找到项目，检查是否有项目的created_by为NULL
-        if user_role in ['LM', 'FT'] and len(projects) == 0:
-            print(f"{user_role}用户没有找到项目，检查是否有项目的created_by为NULL")
+        # 如果是LM用户但没有找到项目，检查是否有项目的created_by为NULL
+        if user_role == 'LM' and len(projects) == 0:
+            print("LM用户没有找到项目，检查是否有项目的created_by为NULL")
             cur.execute("SELECT COUNT(*) as count FROM projectname WHERE created_by IS NULL")
             null_count = cur.fetchone()['count']
             print(f"created_by为NULL的项目数: {null_count}")
@@ -245,11 +238,11 @@ def get_projects():
 @token_required
 def get_project(project_id):
     user_role = request.user.get('role')
-    user_id = request.user.get('user_id') or request.user.get('id')
+    user_id = request.user.get('user_id')
     
     with db.cursor() as cur:
-        if user_role in ['LM', 'FT']:
-            # LM和FT可以查看任何项目
+        if user_role == 'LM':
+            # LM可以查看任何项目
             cur.execute("SELECT * FROM projectname WHERE id = %s", (project_id,))
         else:
             # BO只能查看自己的项目
@@ -303,15 +296,15 @@ def create_project():
 def update_project(project_id):
     data = request.json
     user_role = request.user.get('role')
-    user_id = request.user.get('user_id') or request.user.get('id')
+    user_id = request.user.get('user_id')
     
     print(f"更新项目 - 项目ID: {project_id}, 用户角色: {user_role}, 用户ID: {user_id}")
     print(f"更新数据: {data}")
     
     # 检查用户是否有权限更新此项目
     with db.cursor() as cur:
-        if user_role in ['LM', 'FT']:
-            # LM和FT可以更新任何项目
+        if user_role == 'LM':
+            # LM可以更新任何项目
             cur.execute("SELECT id FROM projectname WHERE id = %s", (project_id,))
         else:
             # BO只能更新自己的项目
@@ -1648,116 +1641,32 @@ def diagnose_file_relations():
             "traceback": traceback.format_exc()
         }), 500
 
-# 初始化数据库函数
-def init_db():
-    logger.info("开始初始化数据库表...")
+# 初始化数据库函数扩展，添加财务团队用户和task_quotes表
+def init_ft_db():
+    logger.info("开始初始化财务团队相关数据库表...")
     
     with db.cursor() as cur:
-        # 检查users表是否存在
-        cur.execute("SHOW TABLES LIKE 'users'")
+        # 添加FT角色用户
+        cur.execute("SHOW COLUMNS FROM users LIKE 'role'")
+        role_col = cur.fetchone()
+        
+        # 检查users表的role字段是否包含FT
+        if role_col and 'FT' not in role_col['Type']:
+            logger.info("修改users表role字段以支持FT角色...")
+            cur.execute("ALTER TABLE users MODIFY COLUMN role ENUM('LM', 'BO', 'FT') NOT NULL")
+            logger.info("users表role字段已更新")
+        
+        # 检查是否已存在FT用户
+        cur.execute("SELECT id FROM users WHERE username = 'FT'")
         if not cur.fetchone():
-            # 创建users表
-            logger.info("创建users表...")
-            cur.execute("""
-                CREATE TABLE users (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    username VARCHAR(50) NOT NULL UNIQUE,
-                    password VARCHAR(100) NOT NULL,
-                    name VARCHAR(100) NOT NULL,
-                    role ENUM('LM', 'BO', 'FT') NOT NULL,
-                    email VARCHAR(100),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            
-            # 添加默认用户
-            logger.info("添加默认用户...")
+            logger.info("添加财务团队默认用户...")
             cur.execute("""
                 INSERT INTO users (username, password, name, role, email)
-                VALUES 
-                ('admin', 'admin123', 'Admin User', 'LM', 'admin@example.com'),
-                ('bo1', 'bo123', 'Business Owner 1', 'BO', 'bo1@example.com'),
-                ('bo2', 'bo123', 'Business Owner 2', 'BO', 'bo2@example.com'),
-                ('FT', 'ft123', 'Financial Team', 'FT', 'finance@example.com')
+                VALUES ('FT', 'ft123', 'Financial Team', 'FT', 'finance@example.com')
             """)
-            
-            logger.info("Users表创建完成，添加了默认用户")
-        else:
-            logger.info("Users表已存在，无需创建")
-            
-            # 检查users表的role字段是否包含FT角色
-            cur.execute("SHOW COLUMNS FROM users LIKE 'role'")
-            role_col = cur.fetchone()
-            if role_col and 'FT' not in role_col['Type']:
-                logger.info("修改users表role字段以支持FT角色...")
-                cur.execute("ALTER TABLE users MODIFY COLUMN role ENUM('LM', 'BO', 'FT') NOT NULL")
-                logger.info("users表role字段已更新")
-            
-            # 检查是否已存在FT用户
-            cur.execute("SELECT id FROM users WHERE username = 'FT'")
-            if not cur.fetchone():
-                logger.info("添加财务团队默认用户...")
-                cur.execute("""
-                    INSERT INTO users (username, password, name, role, email)
-                    VALUES ('FT', 'ft123', 'Financial Team', 'FT', 'finance@example.com')
-                """)
-                logger.info("财务团队用户已添加")
+            logger.info("财务团队用户已添加")
         
-        # 检查projectname表是否有created_by字段
-        cur.execute("SHOW COLUMNS FROM projectname LIKE 'created_by'")
-        if not cur.fetchone():
-            # 添加created_by字段
-            logger.info("向projectname表添加created_by字段...")
-            cur.execute("ALTER TABLE projectname ADD COLUMN created_by INT")
-            logger.info("成功添加created_by字段到projectname表")
-        else:
-            logger.info("projectname表已有created_by字段")
-        
-        # 检查requests表是否有created_by字段
-        cur.execute("SHOW COLUMNS FROM requests LIKE 'created_by'")
-        if not cur.fetchone():
-            # 添加created_by字段
-            logger.info("向requests表添加created_by字段...")
-            cur.execute("ALTER TABLE requests ADD COLUMN created_by INT")
-            logger.info("成功添加created_by字段到requests表")
-        else:
-            logger.info("requests表已有created_by字段")
-        
-        # 检查requests表是否有project_id字段
-        cur.execute("SHOW COLUMNS FROM requests LIKE 'project_id'")
-        if not cur.fetchone():
-            # 添加project_id字段
-            logger.info("向requests表添加project_id字段...")
-            cur.execute("ALTER TABLE requests ADD COLUMN project_id INT")
-            logger.info("成功添加project_id字段到requests表")
-        else:
-            logger.info("requests表已有project_id字段")
-        
-        # 检查files表是否存在
-        cur.execute("SHOW TABLES LIKE 'files'")
-        if not cur.fetchone():
-            # 创建files表
-            logger.info("创建files表...")
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS files (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    filename VARCHAR(255) NOT NULL,
-                    originalName VARCHAR(255) NOT NULL,
-                    fileType VARCHAR(100),
-                    fileSize INT,
-                    filePath VARCHAR(255) NOT NULL,
-                    fileContent LONGBLOB,
-                    uploadTime DATETIME NOT NULL,
-                    uploaded_by INT NOT NULL,
-                    isDeleted BOOLEAN DEFAULT FALSE,
-                    FOREIGN KEY (uploaded_by) REFERENCES users(id)
-                )
-            """)
-            logger.info("Files表创建完成")
-        else:
-            logger.info("Files表已存在，无需创建")
-        
-        # 检查task_quotes表是否存在
+        # 创建task_quotes表
         cur.execute("SHOW TABLES LIKE 'task_quotes'")
         if not cur.fetchone():
             logger.info("创建task_quotes表...")
@@ -1818,7 +1727,17 @@ def init_db():
         
         db.commit()
     
-    logger.info("数据库初始化完成")
+    logger.info("财务团队相关数据库初始化完成")
+
+# 将原始的init_db函数重命名为init_base_db
+init_base_db = init_db
+
+# 重新定义init_db函数，整合基础初始化和财务团队初始化
+def init_db():
+    # 先执行原始的数据库初始化
+    init_base_db()
+    # 再执行财务团队相关的初始化
+    init_ft_db()
 
 if __name__ == '__main__':
     logger.info("==========================================")

@@ -42,7 +42,7 @@
             项目管理 / Project Management
           </a-menu-item>
           
-          <!-- 财务管理 - 仅LM可见 -->
+          <!-- 财务管理 - 仅LM和FT可见 -->
           <a-menu-item key="1_3" v-if="filteredMenuItems.includes('1_3')">
             财务管理 / Financial Management
           </a-menu-item>
@@ -90,7 +90,7 @@
               项目管理 / Project Management
             </a-menu-item>
             
-            <!-- 财务管理 - 仅LM可见 -->
+            <!-- 财务管理 - 仅LM和FT可见 -->
             <a-menu-item key="1_3" @click="onClickMenuItem('1_3')" v-if="filteredMenuItems.includes('1_3')">
               财务管理 / Financial Management
             </a-menu-item>
@@ -114,7 +114,7 @@
               <a-doption>
                 <div class="user-dropdown-item">
                   <span>{{ userName }}</span>
-                  <span class="user-role">{{ userRole === 'LM' ? '本地化经理 / LM' : '业务负责人 / BO' }}</span>
+                  <span class="user-role">{{ userRole === 'LM' ? '本地化经理 / LM' : userRole === 'FT' ? '财务团队 / FT' : '业务负责人 / BO' }}</span>
                 </div>
               </a-doption>
               <a-doption @click="toggleLogin">
@@ -210,7 +210,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, reactive, computed } from 'vue';
+import { defineComponent, ref, reactive, computed, watch } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import {
   IconHome,
@@ -288,6 +288,12 @@ export default defineComponent({
         return boPages.includes(page);
       }
       
+      // FT可以访问财务管理页面
+      if (userRole.value === 'FT') {
+        const ftPages = ['menu1', 'translator', 'financial_management'];
+        return ftPages.includes(page);
+      }
+      
       return false;
     };
 
@@ -306,6 +312,11 @@ export default defineComponent({
       if (userRole.value === 'BO') {
         // BO只能看到AI助手、翻译工具、请求管理和项目管理
         return ['0_1', '0_2', '1_1', '1_2'];
+      }
+      
+      if (userRole.value === 'FT') {
+        // FT只能看到AI助手、翻译工具和财务管理
+        return ['0_1', '0_2', '1_3'];
       }
       
       return [];
@@ -339,6 +350,12 @@ export default defineComponent({
           
           // 自动登录成功后获取项目数据
           fetchProjectData();
+          
+          // 如果是FT角色，直接进入财务管理页面
+          if (response.data.role === 'FT') {
+            currentPage.value = 'financial_management';
+            selectedMenuKey.value = '1_3';
+          }
         } catch (error) {
           console.error('自动登录失败:', error);
           // 清除无效令牌
@@ -417,6 +434,12 @@ export default defineComponent({
         
         // 登录成功后获取项目数据
         fetchProjectData();
+        
+        // 如果是FT角色，直接进入财务管理页面
+        if (user.role === 'FT') {
+          currentPage.value = 'financial_management';
+          selectedMenuKey.value = '1_3';
+        }
       } catch (error) {
         console.error('登录失败:', error);
         
@@ -582,10 +605,19 @@ export default defineComponent({
           'Authorization': `Bearer ${token}`
         };
         
-        const response = await axios.get('http://localhost:5000/api/projects', { headers });
+        console.log(`正在获取项目数据，用户角色: ${userRole.value}`);
         
-        // 处理项目数据，确保created_by字段是数字类型
+        // 使用标准API接口，后端已经处理FT角色的权限
+        const url = 'http://localhost:5000/api/projects';
+        console.log(`发送请求到: ${url}`);
+        
+        const response = await axios.get(url, { headers });
+        
+        console.log(`获取到项目数据: ${response.data.length} 条记录`);
+        
+        // 处理原始响应数据
         if (Array.isArray(response.data)) {
+          // 处理项目数据，确保created_by字段是数字类型
           const processedData = response.data.map(project => {
             return {
               ...project,
@@ -593,18 +625,71 @@ export default defineComponent({
             };
           });
           projectData.value = processedData;
+          console.log(`成功处理 ${projectData.value.length} 条项目数据`);
+          
+          // 如果是FT角色且获取到了数据，检查是否需要切换到财务管理页面
+          if (userRole.value === 'FT' && projectData.value.length > 0) {
+            console.log('FT角色已获取项目数据，确保正确显示在财务管理页面');
+            currentPage.value = 'financial_management';
+            selectedMenuKey.value = '1_3';
+          }
         } else {
-          projectData.value = response.data;
+          console.error('返回的数据不是数组:', response.data);
+          projectData.value = [];
+          
+          // 如果是FT角色且没有获取到数据，尝试备用请求
+          if (userRole.value === 'FT') {
+            try {
+              console.log('FT角色未获取到数据，尝试备用请求');
+              const fallbackResponse = await axios.get('http://localhost:5000/api/projects?all=true', { headers });
+              
+              if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length > 0) {
+                const processedData = fallbackResponse.data.map(project => {
+                  return {
+                    ...project,
+                    created_by: project.created_by ? Number(project.created_by) : null
+                  };
+                });
+                projectData.value = processedData;
+                console.log(`备用请求成功: ${projectData.value.length} 条记录`);
+              }
+            } catch (fallbackError) {
+              console.error('备用请求失败:', fallbackError);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching project data:', error);
+        Message.error({
+          content: '获取项目数据失败，请刷新页面重试',
+          duration: 3000
+        });
       }
     };
 
-    // 只有在用户登录后才获取项目数据
-    if (isLoggedIn.value) {
-      fetchProjectData();
-    }
+    // 添加检查FT访问页面时项目列表的函数
+    const checkFTProjectData = () => {
+      if (userRole.value === 'FT' && currentPage.value === 'financial_management' && projectData.value.length === 0) {
+        console.log('FT角色访问财务管理页面，但项目数据为空，尝试重新获取');
+        fetchProjectData();
+      }
+    };
+
+    // 监听页面切换
+    watch(currentPage, (newPage) => {
+      if (newPage === 'financial_management') {
+        // 如果进入财务管理页面，确保项目数据已加载
+        checkFTProjectData();
+      }
+    });
+
+    // 监听用户角色变化
+    watch(userRole, () => {
+      // 如果用户角色改变，重新获取项目数据
+      if (isLoggedIn.value) {
+        fetchProjectData();
+      }
+    });
 
     return {
       collapsed,

@@ -2,37 +2,37 @@
   <div class="financial-management-container">
     <h2>财务管理 / Financial Management</h2>
     
-    <!-- 只有LM可以访问财务管理 -->
-    <div v-if="userRole === 'LM'">
+    <!-- 只有FT用户可以访问财务管理 -->
+    <div v-if="userRole === 'FT'">
+      <!-- 项目列表 -->
       <div class="action-bar">
         <a-input-search
           v-model="searchKeyword"
-          placeholder="搜索项目或LSP / Search projects or LSPs"
+          placeholder="搜索项目 / Search projects"
           style="width: 300px; margin-right: 16px;"
           @search="handleSearch"
         />
         <a-select
           v-model="statusFilter"
-          placeholder="报价状态 / Quote Status"
+          placeholder="项目状态 / Project Status"
           style="width: 200px; margin-right: 16px;"
           allow-clear
+          @change="handleStatusChange"
         >
           <a-option value="all">全部 / All</a-option>
-          <a-option value="pending">待审批 / Pending</a-option>
-          <a-option value="approved">已批准 / Approved</a-option>
-          <a-option value="rejected">已拒绝 / Rejected</a-option>
+          <a-option value="pending">待处理 / Pending</a-option>
+          <a-option value="in_progress">进行中 / In Progress</a-option>
+          <a-option value="completed">已完成 / Completed</a-option>
+          <a-option value="cancelled">已取消 / Cancelled</a-option>
         </a-select>
-        <a-button type="primary" @click="refreshQuotes">
-          刷新 / Refresh
-        </a-button>
-        <a-button type="primary" style="margin-left: 16px;" @click="showCreateQuoteModal">
-          创建报价 / Create Quote
+        <a-button type="primary" @click="refreshProjects">
+          刷新列表 / Refresh List
         </a-button>
       </div>
       
       <a-table
         :columns="columns"
-        :data="filteredQuotes"
+        :data="filteredProjects"
         :loading="loading"
         :pagination="{
           showTotal: true,
@@ -41,142 +41,193 @@
         }"
         row-key="id"
         style="margin-top: 16px;"
+        :column-resizable="true"
       >
-        <!-- 报价状态列 -->
-        <template #status="{ record }">
-          <a-tag :color="getStatusColor(record.status)">
-            {{ getStatusText(record.status) }}
+        <!-- 空状态提示 -->
+        <template #empty>
+          <div style="text-align: center; padding: 20px;">
+            <a-empty description="暂无项目数据 / No project data available">
+              <template #image>
+                <icon-file style="font-size: 48px; color: #c2c7d0;" />
+              </template>
+              <a-button type="primary" @click="refreshProjects">
+                刷新 / Refresh
+              </a-button>
+            </a-empty>
+          </div>
+        </template>
+        
+        <!-- 项目状态列 -->
+        <template #projectStatus="{ record }">
+          <a-tag :color="getStatusColor(record.projectStatus)">
+            {{ getStatusText(record.projectStatus) }}
           </a-tag>
+        </template>
+        
+        <!-- 任务状态列 -->
+        <template #taskTranslation="{ record }">
+          <a-progress
+            :percent="getTaskProgress(record.taskTranslation)"
+            :status="getTaskStatus(record.taskTranslation)"
+            :show-text="false"
+            size="small"
+          />
+          <span>{{ getTaskText(record.taskTranslation) }}</span>
+        </template>
+        
+        <template #taskLQA="{ record }">
+          <a-progress
+            :percent="getTaskProgress(record.taskLQA)"
+            :status="getTaskStatus(record.taskLQA)"
+            :show-text="false"
+            size="small"
+          />
+          <span>{{ getTaskText(record.taskLQA) }}</span>
         </template>
         
         <!-- 操作列 -->
         <template #operations="{ record }">
           <a-space>
-            <a-button type="text" size="small" @click="viewQuote(record)">
+            <a-button type="text" size="small" @click="onViewProject(record)">
               查看 / View
             </a-button>
-            <a-button type="text" size="small" @click="editQuote(record)">
-              编辑 / Edit
-            </a-button>
-            <a-button 
-              type="text" 
-              size="small" 
-              @click="approveQuote(record)"
-              v-if="record.status === 'pending'"
-            >
-              批准 / Approve
-            </a-button>
-            <a-button 
-              type="text" 
-              status="danger" 
-              size="small" 
-              @click="rejectQuote(record)"
-              v-if="record.status === 'pending'"
-            >
-              拒绝 / Reject
+            <a-button type="text" size="small" @click="onUploadQuote(record)">
+              报价录入 / Quote
             </a-button>
           </a-space>
         </template>
-        
-        <!-- 空状态 -->
-        <template #empty>
-          <div class="empty-state">
-            <a-empty description="暂无报价数据 / No quote data available" />
-          </div>
-        </template>
       </a-table>
       
-      <!-- 创建/编辑报价对话框 -->
-      <a-modal
-        v-model:visible="quoteModalVisible"
-        :title="isEditMode ? '编辑报价 / Edit Quote' : '创建报价 / Create Quote'"
-        @ok="submitQuote"
-        @cancel="quoteModalVisible = false"
-        :ok-loading="submitting"
+      <!-- 项目详情抽屉 -->
+      <a-drawer
+        v-model:visible="projectDetailVisible"
+        :title="currentProject ? `项目详情: ${currentProject.projectName}` : '项目详情 / Project Details'"
+        width="700px"
+        unmount-on-close
       >
-        <a-form :model="quoteForm" layout="vertical">
-          <a-form-item field="projectId" label="项目 / Project" required>
-            <a-select v-model="quoteForm.projectId" placeholder="选择项目 / Select project">
-              <a-option 
-                v-for="project in projects" 
-                :key="project.id" 
-                :value="project.id"
-              >
-                {{ project.projectName }}
-              </a-option>
-            </a-select>
-          </a-form-item>
-          <a-form-item field="lspName" label="LSP名称 / LSP Name" required>
-            <a-input v-model="quoteForm.lspName" placeholder="LSP名称 / LSP name" />
-          </a-form-item>
-          <a-form-item field="quoteAmount" label="报价金额 / Quote Amount" required>
-            <a-input-number v-model="quoteForm.quoteAmount" placeholder="报价金额 / Quote amount" :min="0" :precision="2" />
-          </a-form-item>
-          <a-form-item field="currency" label="货币 / Currency">
-            <a-select v-model="quoteForm.currency" placeholder="选择货币 / Select currency">
-              <a-option value="USD">美元 / USD</a-option>
-              <a-option value="EUR">欧元 / EUR</a-option>
-              <a-option value="CNY">人民币 / CNY</a-option>
-              <a-option value="JPY">日元 / JPY</a-option>
-              <a-option value="GBP">英镑 / GBP</a-option>
-            </a-select>
-          </a-form-item>
-          <a-form-item field="wordCount" label="字数 / Word Count">
-            <a-input-number v-model="quoteForm.wordCount" placeholder="字数 / Word count" :min="0" />
-          </a-form-item>
-          <a-form-item field="quoteDate" label="报价日期 / Quote Date">
-            <a-date-picker v-model="quoteForm.quoteDate" />
-          </a-form-item>
-          <a-form-item field="notes" label="备注 / Notes">
-            <a-textarea v-model="quoteForm.notes" placeholder="备注 / Notes" :auto-size="{ minRows: 3, maxRows: 5 }" />
-          </a-form-item>
-        </a-form>
-      </a-modal>
+        <div v-if="currentProject" class="project-detail">
+          <a-descriptions :column="1" bordered size="small" title="基本信息 / Basic Information">
+            <a-descriptions-item label="项目名称 / Project Name">{{ currentProject.projectName }}</a-descriptions-item>
+            <a-descriptions-item label="项目状态 / Project Status">
+              <a-tag :color="getStatusColor(currentProject.projectStatus)">
+                {{ getStatusText(currentProject.projectStatus) }}
+              </a-tag>
+            </a-descriptions-item>
+            <a-descriptions-item label="请求名称 / Request Name">{{ currentProject.requestName }}</a-descriptions-item>
+            <a-descriptions-item label="项目经理 / Project Manager">{{ currentProject.projectManager }}</a-descriptions-item>
+            <a-descriptions-item label="创建时间 / Create Time">{{ formatDate(currentProject.createTime) }}</a-descriptions-item>
+            <a-descriptions-item label="源语言 / Source Language">{{ getLanguageName(currentProject.sourceLanguage) }}</a-descriptions-item>
+            <a-descriptions-item label="目标语言 / Target Languages">
+              <template v-if="Array.isArray(currentProject.targetLanguages) && currentProject.targetLanguages.length > 0">
+                <a-space>
+                  <a-tag v-for="lang in currentProject.targetLanguages" :key="lang">
+                    {{ getLanguageName(lang) }}
+                  </a-tag>
+                </a-space>
+              </template>
+              <span v-else>无 / None</span>
+            </a-descriptions-item>
+            <a-descriptions-item label="字数 / Word Count">{{ currentProject.wordCount }}</a-descriptions-item>
+            <a-descriptions-item label="预期交付日期 / Expected Delivery Date">{{ formatDate(currentProject.expectedDeliveryDate) }}</a-descriptions-item>
+          </a-descriptions>
+          
+          <a-divider />
+          
+          <a-descriptions :column="1" bordered size="small" title="任务信息 / Task Information">
+            <a-descriptions-item label="翻译任务 / Translation Task">
+              <div class="task-info">
+                <div class="task-progress">
+                  <a-progress
+                    :percent="getTaskProgress(currentProject.taskTranslation)"
+                    :status="getTaskStatus(currentProject.taskTranslation)"
+                    :show-text="true"
+                    size="small"
+                  />
+                </div>
+                <div class="task-detail">
+                  <div><strong>负责人 / Assignee:</strong> {{ currentProject.translationAssignee || '未分配 / Not assigned' }}</div>
+                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(currentProject.translationDeadline) }}</div>
+                  <div><strong>备注 / Notes:</strong> {{ currentProject.translationNotes || '无 / None' }}</div>
+                </div>
+              </div>
+            </a-descriptions-item>
+            
+            <a-descriptions-item label="LQA任务 / LQA Task">
+              <div class="task-info">
+                <div class="task-progress">
+                  <a-progress
+                    :percent="getTaskProgress(currentProject.taskLQA)"
+                    :status="getTaskStatus(currentProject.taskLQA)"
+                    :show-text="true"
+                    size="small"
+                  />
+                </div>
+                <div class="task-detail">
+                  <div><strong>负责人 / Assignee:</strong> {{ currentProject.lqaAssignee || '未分配 / Not assigned' }}</div>
+                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(currentProject.lqaDeadline) }}</div>
+                  <div><strong>备注 / Notes:</strong> {{ currentProject.lqaNotes || '无 / None' }}</div>
+                </div>
+              </div>
+            </a-descriptions-item>
+            
+            <a-descriptions-item label="翻译更新 / Translation Update">
+              <div class="task-info">
+                <div class="task-progress">
+                  <a-progress
+                    :percent="getTaskProgress(currentProject.taskTranslationUpdate)"
+                    :status="getTaskStatus(currentProject.taskTranslationUpdate)"
+                    :show-text="true"
+                    size="small"
+                  />
+                </div>
+                <div class="task-detail">
+                  <div><strong>负责人 / Assignee:</strong> {{ currentProject.translationUpdateAssignee || '未分配 / Not assigned' }}</div>
+                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(currentProject.translationUpdateDeadline) }}</div>
+                  <div><strong>备注 / Notes:</strong> {{ currentProject.translationUpdateNotes || '无 / None' }}</div>
+                </div>
+              </div>
+            </a-descriptions-item>
+            
+            <a-descriptions-item label="LQA报告定稿 / LQA Report Finalization">
+              <div class="task-info">
+                <div class="task-progress">
+                  <a-progress
+                    :percent="getTaskProgress(currentProject.taskLQAReportFinalization)"
+                    :status="getTaskStatus(currentProject.taskLQAReportFinalization)"
+                    :show-text="true"
+                    size="small"
+                  />
+                </div>
+                <div class="task-detail">
+                  <div><strong>负责人 / Assignee:</strong> {{ currentProject.lqaReportFinalizationAssignee || '未分配 / Not assigned' }}</div>
+                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(currentProject.lqaReportFinalizationDeadline) }}</div>
+                  <div><strong>备注 / Notes:</strong> {{ currentProject.lqaReportFinalizationNotes || '无 / None' }}</div>
+                </div>
+              </div>
+            </a-descriptions-item>
+          </a-descriptions>
+          
+          <div class="drawer-footer">
+            <a-button @click="projectDetailVisible = false">关闭 / Close</a-button>
+          </div>
+        </div>
+      </a-drawer>
       
-      <!-- 查看报价详情对话框 -->
-      <a-modal
-        v-model:visible="viewModalVisible"
-        title="报价详情 / Quote Details"
-        @cancel="viewModalVisible = false"
-        :footer="false"
-      >
-        <a-descriptions :column="1" bordered v-if="currentQuote">
-          <a-descriptions-item label="项目名称 / Project Name">
-            {{ getProjectName(currentQuote.projectId) }}
-          </a-descriptions-item>
-          <a-descriptions-item label="LSP名称 / LSP Name">
-            {{ currentQuote.lspName }}
-          </a-descriptions-item>
-          <a-descriptions-item label="报价金额 / Quote Amount">
-            {{ currentQuote.quoteAmount }} {{ currentQuote.currency }}
-          </a-descriptions-item>
-          <a-descriptions-item label="字数 / Word Count">
-            {{ currentQuote.wordCount }}
-          </a-descriptions-item>
-          <a-descriptions-item label="报价日期 / Quote Date">
-            {{ formatDate(currentQuote.quoteDate) }}
-          </a-descriptions-item>
-          <a-descriptions-item label="状态 / Status">
-            <a-tag :color="getStatusColor(currentQuote.status)">
-              {{ getStatusText(currentQuote.status) }}
-            </a-tag>
-          </a-descriptions-item>
-          <a-descriptions-item label="备注 / Notes">
-            {{ currentQuote.notes }}
-          </a-descriptions-item>
-          <a-descriptions-item label="创建时间 / Create Time">
-            {{ formatDate(currentQuote.createTime) }}
-          </a-descriptions-item>
-        </a-descriptions>
-      </a-modal>
+      <!-- 报价录入对话框 -->
+      <QuoteUploader
+        ref="quoteUploaderRef"
+        :userRole="userRole"
+        :userId="userId"
+        @uploaded="handleQuoteUploaded"
+      />
     </div>
     
-    <!-- 非LM用户无权访问 -->
+    <!-- 非FT用户无权访问 -->
     <div v-else class="no-permission">
       <a-result
         status="403"
         title="无权访问 / Access Denied"
-        subtitle="您没有权限访问财务管理页面 / You do not have permission to access the Financial Management page"
+        subtitle="只有财务团队成员可以访问此页面 / Only Financial Team members can access this page"
       >
         <template #extra>
           <a-button type="primary">返回首页 / Back to Home</a-button>
@@ -187,9 +238,21 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import axios from 'axios';
+import { IconFile } from '@arco-design/web-vue/es/icon';
+import QuoteUploader from './finance/QuoteUploader.vue';
+import { 
+  getStatusColor, 
+  getStatusText, 
+  getTaskProgress, 
+  getTaskStatus, 
+  getTaskText,
+  getLanguageName,
+  formatDate,
+  processProject
+} from './project/utils/projectUtils';
 
 // 接收用户角色和ID作为props
 const props = defineProps({
@@ -210,87 +273,83 @@ const columns = [
     dataIndex: 'projectName',
     key: 'projectName',
     sortable: true,
+    resizable: true,
   },
   {
-    title: 'LSP名称 / LSP Name',
-    dataIndex: 'lspName',
-    key: 'lspName',
+    title: '项目状态 / Project Status',
+    dataIndex: 'projectStatus',
+    key: 'projectStatus',
+    slotName: 'projectStatus',
     sortable: true,
+    resizable: true,
   },
   {
-    title: '报价金额 / Quote Amount',
-    dataIndex: 'quoteAmount',
-    key: 'quoteAmount',
-    sortable: true,
-    render: (col, record) => `${record.quoteAmount} ${record.currency}`,
+    title: '请求名称 / Request Name',
+    dataIndex: 'requestName',
+    key: 'requestName',
+    resizable: true,
   },
   {
-    title: '字数 / Word Count',
-    dataIndex: 'wordCount',
-    key: 'wordCount',
+    title: '项目经理 / Project Manager',
+    dataIndex: 'projectManager',
+    key: 'projectManager',
     sortable: true,
+    resizable: true,
   },
   {
-    title: '报价日期 / Quote Date',
-    dataIndex: 'quoteDate',
-    key: 'quoteDate',
+    title: '创建时间 / Create Time',
+    dataIndex: 'createTime',
+    key: 'createTime',
     sortable: true,
+    resizable: true,
   },
   {
-    title: '状态 / Status',
-    dataIndex: 'status',
-    key: 'status',
-    slotName: 'status',
-    sortable: true,
-    filterable: true,
+    title: '翻译任务 / Translation Task',
+    dataIndex: 'taskTranslation',
+    key: 'taskTranslation',
+    slotName: 'taskTranslation',
+    resizable: true,
+  },
+  {
+    title: 'LQA任务 / LQA Task',
+    dataIndex: 'taskLQA',
+    key: 'taskLQA',
+    slotName: 'taskLQA',
+    resizable: true,
   },
   {
     title: '操作 / Operations',
     slotName: 'operations',
-    width: 250,
+    width: 200,
+    resizable: true,
   },
 ];
 
-// 状态和数据
-const quotes = ref([]);
+// 状态
 const projects = ref([]);
 const loading = ref(false);
 const searchKeyword = ref('');
 const statusFilter = ref('all');
-const quoteModalVisible = ref(false);
-const viewModalVisible = ref(false);
-const submitting = ref(false);
-const isEditMode = ref(false);
-const currentQuote = ref(null);
+const projectDetailVisible = ref(false);
+const currentProject = ref(null);
+const quoteUploaderRef = ref(null);
 
-// 表单数据
-const quoteForm = reactive({
-  id: null,
-  projectId: null,
-  lspName: '',
-  quoteAmount: 0,
-  currency: 'USD',
-  wordCount: 0,
-  quoteDate: new Date(),
-  status: 'pending',
-  notes: '',
-});
-
-// 过滤后的报价列表
-const filteredQuotes = computed(() => {
-  let result = [...quotes.value];
+// 过滤后的项目列表
+const filteredProjects = computed(() => {
+  let result = [...projects.value];
   
   // 状态过滤
   if (statusFilter.value !== 'all') {
-    result = result.filter(quote => quote.status === statusFilter.value);
+    result = result.filter(project => project.projectStatus === statusFilter.value);
   }
   
   // 关键词搜索
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase();
-    result = result.filter(quote => 
-      quote.projectName.toLowerCase().includes(keyword) ||
-      quote.lspName.toLowerCase().includes(keyword)
+    result = result.filter(project => 
+      project.projectName.toLowerCase().includes(keyword) ||
+      project.requestName.toLowerCase().includes(keyword) ||
+      project.projectManager.toLowerCase().includes(keyword)
     );
   }
   
@@ -299,195 +358,172 @@ const filteredQuotes = computed(() => {
 
 // 生命周期钩子
 onMounted(() => {
-  if (props.userRole === 'LM') {
-    fetchQuotes();
-    fetchProjects();
+  if (props.userRole === 'FT') {
+    console.log('FinancialManagement组件挂载，FT角色，立即获取项目数据');
+    
+    // 清空项目列表，避免可能的缓存问题
+    projects.value = [];
+    
+    // 设置短暂延迟确保DOM更新
+    setTimeout(() => {
+      fetchProjects();
+      
+      // 如果第一次获取为空，尝试再次获取
+      setTimeout(() => {
+        if (projects.value.length === 0) {
+          console.log('项目列表为空，尝试再次获取');
+          fetchProjects();
+        }
+      }, 1000);
+    }, 100);
+  } else {
+    console.log(`FinancialManagement组件挂载，非FT角色 (${props.userRole})，不获取项目数据`);
   }
 });
 
-// 当用户ID或角色变化时重新获取数据
+// 当用户ID或角色变化时重新获取项目
 watch([() => props.userId, () => props.userRole], () => {
-  if (props.userRole === 'LM') {
-    fetchQuotes();
+  if (props.userRole === 'FT') {
     fetchProjects();
   }
 });
 
-// 方法
-const fetchQuotes = async () => {
-  if (props.userRole !== 'LM' || !props.userId) return;
+// 获取项目列表
+const fetchProjects = async () => {
+  if (!props.userId) {
+    console.log('未获取项目数据：用户ID为空');
+    return;
+  }
   
+  console.log(`开始获取项目数据，用户ID: ${props.userId}, 用户角色: ${props.userRole}`);
   loading.value = true;
+  
   try {
-    const response = await axios.get('http://localhost:5000/api/quotes');
-    quotes.value = response.data;
+    // 获取存储的令牌
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('未找到令牌，无法获取项目数据');
+      Message.error('未登录或会话已过期 / Not logged in or session expired');
+      return;
+    }
+    
+    // 设置请求头
+    const headers = {
+      'Authorization': `Bearer ${token}`
+    };
+    
+    // 直接使用项目API接口，后端已经处理FT角色的权限
+    console.log('发送请求到: http://localhost:5000/api/projects');
+    
+    const response = await axios.get('http://localhost:5000/api/projects', { headers });
+    console.log(`获取项目数据成功，项目数量: ${response.data.length}`);
+    
+    if (Array.isArray(response.data)) {
+      // 处理项目数据
+      const processedProjects = response.data.map(project => processProject(project));
+      
+      console.log(`FinancialManagement - 处理后的项目数据: ${processedProjects.length} 条记录`);
+      
+      if (processedProjects.length === 0 && props.userRole === 'FT') {
+        console.log('项目列表为空但角色是FT，尝试使用备用参数');
+        
+        // 尝试使用备用参数
+        try {
+          const allProjectsResponse = await axios.get('http://localhost:5000/api/projects?all=true', { headers });
+          console.log(`备用请求成功，项目数量: ${allProjectsResponse.data.length}`);
+          
+          if (Array.isArray(allProjectsResponse.data) && allProjectsResponse.data.length > 0) {
+            const allProjects = allProjectsResponse.data.map(project => processProject(project));
+            projects.value = allProjects;
+          } else {
+            projects.value = [];
+          }
+        } catch (innerError) {
+          console.error('备用请求失败:', innerError);
+          projects.value = processedProjects; // 退回到原始结果
+        }
+      } else {
+        projects.value = processedProjects;
+      }
+    } else {
+      console.error('返回的数据不是数组:', response.data);
+      projects.value = [];
+    }
   } catch (error) {
-    console.error('Error fetching quotes:', error);
-    Message.error('获取报价列表失败 / Failed to fetch quotes');
+    console.error('获取项目数据失败:', error);
+    if (error.response) {
+      console.error('错误响应:', error.response.data);
+      console.error('状态码:', error.response.status);
+    }
+    
+    // 尝试其他备用方法获取项目
+    console.log('尝试备用方法获取项目...');
+    try {
+      const fallbackResponse = await axios.get('http://localhost:5000/api/projects?fallback=true', { 
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length > 0) {
+        const fallbackProjects = fallbackResponse.data.map(project => processProject(project));
+        projects.value = fallbackProjects;
+        console.log(`备用方法获取项目成功: ${fallbackProjects.length} 条记录`);
+      } else {
+        Message.error('获取项目列表失败 / Failed to fetch projects');
+        projects.value = [];
+      }
+    } catch (fallbackError) {
+      console.error('备用方法也失败:', fallbackError);
+      Message.error('获取项目列表失败 / Failed to fetch projects');
+      projects.value = [];
+    }
   } finally {
     loading.value = false;
   }
 };
 
-const fetchProjects = async () => {
-  if (props.userRole !== 'LM' || !props.userId) return;
-  
-  try {
-    const response = await axios.get('http://localhost:5000/api/projects');
-    projects.value = response.data;
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    Message.error('获取项目列表失败 / Failed to fetch projects');
-  }
+// 刷新项目列表
+const refreshProjects = () => {
+  fetchProjects();
 };
 
-const refreshQuotes = () => {
-  fetchQuotes();
-  Message.success('报价列表已刷新 / Quote list refreshed');
-};
-
+// 搜索处理
 const handleSearch = () => {
   console.log('Searching for:', searchKeyword.value);
 };
 
-const getStatusColor = (status) => {
-  const statusMap = {
-    pending: 'orange',
-    approved: 'green',
-    rejected: 'red',
-  };
-  return statusMap[status] || 'gray';
+// 状态筛选变化处理
+const handleStatusChange = () => {
+  console.log('状态筛选变更为:', statusFilter.value);
 };
 
-const getStatusText = (status) => {
-  const statusMap = {
-    pending: '待审批 / Pending',
-    approved: '已批准 / Approved',
-    rejected: '已拒绝 / Rejected',
-  };
-  return statusMap[status] || '未知 / Unknown';
+// 查看项目详情
+const onViewProject = (project) => {
+  currentProject.value = project;
+  projectDetailVisible.value = true;
 };
 
-const formatDate = (dateString) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString();
-};
-
-const getProjectName = (projectId) => {
-  const project = projects.value.find(p => p.id === projectId);
-  return project ? project.projectName : '未知项目 / Unknown Project';
-};
-
-const resetQuoteForm = () => {
-  quoteForm.id = null;
-  quoteForm.projectId = null;
-  quoteForm.lspName = '';
-  quoteForm.quoteAmount = 0;
-  quoteForm.currency = 'USD';
-  quoteForm.wordCount = 0;
-  quoteForm.quoteDate = new Date();
-  quoteForm.status = 'pending';
-  quoteForm.notes = '';
-};
-
-const showCreateQuoteModal = () => {
-  isEditMode.value = false;
-  resetQuoteForm();
-  quoteModalVisible.value = true;
-};
-
-const viewQuote = (quote) => {
-  currentQuote.value = quote;
-  viewModalVisible.value = true;
-};
-
-const editQuote = (quote) => {
-  isEditMode.value = true;
-  
-  // 复制报价数据到表单
-  quoteForm.id = quote.id;
-  quoteForm.projectId = quote.projectId;
-  quoteForm.lspName = quote.lspName;
-  quoteForm.quoteAmount = quote.quoteAmount;
-  quoteForm.currency = quote.currency;
-  quoteForm.wordCount = quote.wordCount;
-  quoteForm.quoteDate = quote.quoteDate ? new Date(quote.quoteDate) : new Date();
-  quoteForm.status = quote.status;
-  quoteForm.notes = quote.notes || '';
-  
-  quoteModalVisible.value = true;
-};
-
-const submitQuote = async () => {
-  if (!quoteForm.projectId || !quoteForm.lspName || quoteForm.quoteAmount <= 0) {
-    Message.error('请填写必填字段 / Please fill in all required fields');
-    return;
-  }
-  
-  try {
-    submitting.value = true;
-    
-    // 准备报价数据
-    const quoteData = {
-      ...quoteForm,
-      quoteDate: quoteForm.quoteDate ? formatDate(quoteForm.quoteDate) : formatDate(new Date()),
-    };
-    
-    let response;
-    
-    if (isEditMode.value) {
-      // 更新报价
-      response = await axios.put(`http://localhost:5000/api/quotes/${quoteForm.id}`, quoteData);
-      Message.success('报价更新成功 / Quote updated successfully');
-    } else {
-      // 创建报价
-      response = await axios.post('http://localhost:5000/api/quotes', quoteData);
-      Message.success('报价创建成功 / Quote created successfully');
-    }
-    
-    quoteModalVisible.value = false;
-    fetchQuotes(); // 刷新报价列表
-  } catch (error) {
-    console.error('Error submitting quote:', error);
-    Message.error(`提交失败: ${error.message} / Submission failed: ${error.message}`);
-  } finally {
-    submitting.value = false;
+// 上传报价
+const onUploadQuote = (project) => {
+  if (quoteUploaderRef.value) {
+    quoteUploaderRef.value.openQuoteModal(project);
   }
 };
 
-const approveQuote = async (quote) => {
-  try {
-    const response = await axios.put(`http://localhost:5000/api/quotes/${quote.id}`, {
-      status: 'approved'
-    });
-    
-    Message.success('报价已批准 / Quote approved');
-    fetchQuotes(); // 刷新报价列表
-  } catch (error) {
-    console.error('Error approving quote:', error);
-    Message.error(`操作失败: ${error.message} / Operation failed: ${error.message}`);
-  }
-};
-
-const rejectQuote = async (quote) => {
-  try {
-    const response = await axios.put(`http://localhost:5000/api/quotes/${quote.id}`, {
-      status: 'rejected'
-    });
-    
-    Message.success('报价已拒绝 / Quote rejected');
-    fetchQuotes(); // 刷新报价列表
-  } catch (error) {
-    console.error('Error rejecting quote:', error);
-    Message.error(`操作失败: ${error.message} / Operation failed: ${error.message}`);
-  }
+// 处理报价上传完成
+const handleQuoteUploaded = () => {
+  Message.success('报价已上传 / Quote has been uploaded');
+  fetchProjects(); // 刷新项目列表
 };
 </script>
 
 <style scoped>
 .financial-management-container {
+  width: 100%;
+  height: 100%;
   padding: 20px;
+  background-color: var(--color-bg-2);
 }
 
 h2 {
@@ -500,8 +536,33 @@ h2 {
   margin-bottom: 16px;
 }
 
-.empty-state {
-  padding: 40px 0;
+.project-detail {
+  padding-bottom: 60px;
+}
+
+.task-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-progress {
+  margin-bottom: 8px;
+}
+
+.task-detail > div {
+  margin-bottom: 4px;
+}
+
+.drawer-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+  background-color: var(--color-bg-2);
+  border-top: 1px solid var(--color-border);
+  text-align: right;
 }
 
 .no-permission {
