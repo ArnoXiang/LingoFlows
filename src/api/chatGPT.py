@@ -4,7 +4,7 @@ import time
 import json
 from openai import OpenAI
 
-os.environ["OPENAI_API_KEY"] = "sk-W5lz3gI2jisExGXyB6138bD016Cb4f62A85eE91cF5EbC772"
+os.environ["OPENAI_API_KEY"] = "xxx"
 os.environ["OPENAI_BASE_URL"] = "https://api.yesapikey.com/v1"
 client = OpenAI()
 
