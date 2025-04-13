@@ -252,9 +252,27 @@ const loadProjectFiles = async (projectId) => {
           id: fileGroup.id || Math.random().toString(36).substr(2, 9),
           created_at: fileGroup.uploadTime || fileGroup.created_at || new Date().toISOString(),
           fileType: fileGroup.fileType || 'source',
-          description: fileGroup.notes || fileGroup.description || getFileTypeText(fileGroup.fileType) || '项目文件',
+          description: '',  // 初始化为空字符串
           fileList: []
         };
+        
+        // 设置描述文本，过滤掉自动修复相关文本
+        if (fileGroup.notes) {
+          const notesText = fileGroup.notes.toString();
+          // 移除自动修复文本
+          if (!notesText.includes('自动修复创建的文件组') && !notesText.includes('Auto-fixed file group')) {
+            processedFileGroup.description = notesText;
+          }
+        } else if (fileGroup.description) {
+          const descText = fileGroup.description.toString();
+          // 移除自动修复文本
+          if (!descText.includes('自动修复创建的文件组') && !descText.includes('Auto-fixed file group')) {
+            processedFileGroup.description = descText;
+          }
+        } else {
+          // 如果没有描述，使用文件类型文本
+          processedFileGroup.description = getFileTypeText(fileGroup.fileType);
+        }
         
         // 处理文件列表，确保能接受多种格式
         let fileList = [];

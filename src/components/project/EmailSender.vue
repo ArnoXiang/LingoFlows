@@ -285,7 +285,7 @@ const generateEmailContent = () => {
   });
   textSchedule += '--------------------------------\n\n';
   
-  // HTML格式的项目进度表（用于预览）
+  // HTML格式的项目进度表（用于预览）- 实现Task列相同值合并
   let htmlSchedule = `
     <div style="background-color:#f9f9f9;padding:10px;border-left:4px solid #4080ff;margin:15px 0;border-radius:4px;">
       <h3 style="margin-top:0;margin-bottom:10px;">Project Schedule</h3>
@@ -302,17 +302,42 @@ const generateEmailContent = () => {
         <tbody>
   `;
   
-  // 添加表格行
+  // 按Task分组处理数据以实现合并单元格
+  const taskGroups = {};
   detailedScheduleData.value.forEach(item => {
-    htmlSchedule += `
-      <tr>
-        <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.task || ''}</td>
+    const taskName = item.task || '';
+    if (!taskGroups[taskName]) {
+      taskGroups[taskName] = [];
+    }
+    taskGroups[taskName].push(item);
+  });
+  
+  // 遍历每个任务组生成表格行
+  Object.keys(taskGroups).forEach(taskName => {
+    const taskItems = taskGroups[taskName];
+    const rowCount = taskItems.length;
+    
+    // 生成该任务的所有行
+    taskItems.forEach((item, index) => {
+      htmlSchedule += '<tr>';
+      
+      // 只在每个任务的第一行添加合并的Task单元格
+      if (index === 0) {
+        htmlSchedule += `
+          <td style="border:1px solid #ddd;padding:8px;text-align:left;vertical-align:top" rowspan="${rowCount}">${taskName}</td>
+        `;
+      }
+      
+      // 添加其他单元格
+      htmlSchedule += `
         <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.language || ''}</td>
         <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.deadline || ''}</td>
         <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.owner || ''}</td>
         <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.notes || ''}</td>
-      </tr>
-    `;
+      `;
+      
+      htmlSchedule += '</tr>';
+    });
   });
   
   htmlSchedule += `

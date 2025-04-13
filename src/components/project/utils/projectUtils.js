@@ -100,7 +100,7 @@ export const getLanguageName = (code) => {
 };
 
 /**
- * 格式化日期显示
+ * 格式化日期显示，使用北京时间（东八区，UTC+8）
  * @param {string|Date} dateString 日期字符串或日期对象
  * @returns {string} 格式化后的日期字符串
  */
@@ -109,7 +109,16 @@ export const formatDate = (dateString) => {
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return dateString; // 如果无法解析，则返回原始字符串
-    return date.toLocaleDateString();
+    
+    // 格式化为北京时间（东八区，UTC+8）
+    const options = { 
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit' 
+    };
+    
+    return date.toLocaleDateString('zh-CN', options);
   } catch (error) {
     console.error('日期格式化错误:', error);
     return dateString;
@@ -144,6 +153,49 @@ export const processProject = (project) => {
     additionalRequirements = [];
   }
   
+  // 处理预期交付日期，确保格式一致，使用北京时间
+  let expectedDeliveryDate = project.expectedDeliveryDate;
+  if (expectedDeliveryDate) {
+    try {
+      // 转换日期为北京时间（东八区，UTC+8）
+      const date = new Date(expectedDeliveryDate);
+      if (!isNaN(date.getTime())) {
+        const options = { 
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit' 
+        };
+        expectedDeliveryDate = date.toLocaleDateString('zh-CN', options);
+      }
+    } catch (error) {
+      console.error('处理预期交付日期时出错:', error);
+    }
+  } else {
+    expectedDeliveryDate = '未设置 / Not set';
+  }
+  
+  // 处理创建时间，确保使用北京时间
+  let createTime = project.createTime;
+  if (createTime) {
+    try {
+      const date = new Date(createTime);
+      if (!isNaN(date.getTime())) {
+        const options = { 
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        };
+        createTime = date.toLocaleString('zh-CN', options);
+      }
+    } catch (error) {
+      console.error('处理创建时间时出错:', error);
+    }
+  }
+  
   // 返回处理后的项目对象
   return {
     ...project,
@@ -151,6 +203,8 @@ export const processProject = (project) => {
     created_by,
     targetLanguages,
     additionalRequirements,
+    expectedDeliveryDate,
+    createTime,
     // 确保任务状态字段存在
     taskTranslation: project.taskTranslation || 'not_started',
     taskLQA: project.taskLQA || 'not_started',
@@ -282,10 +336,25 @@ export const getScheduleData = (project) => {
     try {
       // 如果是日期对象，格式化它
       if (date instanceof Date) {
-        return date.toISOString().split('T')[0];
+        // 使用北京时间格式化
+        const options = { 
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit' 
+        };
+        return new Date(date).toLocaleDateString('zh-CN', options);
       }
       // 如果是字符串，尝试解析
-      return new Date(date).toISOString().split('T')[0];
+      const dateObj = new Date(date);
+      // 使用北京时间格式化
+      const options = { 
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit' 
+      };
+      return dateObj.toLocaleDateString('zh-CN', options);
     } catch (e) {
       return 'TBD';
     }

@@ -41,6 +41,25 @@
           {{ manager }}
         </a-option>
       </a-select>
+      <a-date-picker
+        v-model="deliveryDateFilter"
+        placeholder="交付日期筛选 / Delivery Date Filter"
+        style="width: 220px; margin-right: 16px;"
+        allow-clear
+        @change="handleDeliveryDateChange"
+      >
+        <template #extra>
+          <div style="padding: 0 10px; text-align: right;">
+            <a-space>
+              <a-radio-group v-model="dateFilterMode" type="button" size="small">
+                <a-radio value="before">早于 / Before</a-radio>
+                <a-radio value="after">晚于 / After</a-radio>
+              </a-radio-group>
+              <a-button type="text" @click="handleDateFilterReset">重置 / Reset</a-button>
+            </a-space>
+          </div>
+        </template>
+      </a-date-picker>
     </div>
     
     <a-table
@@ -215,6 +234,13 @@ const columns = [
     resizable: true,
   },
   {
+    title: '预期交付日期 / Expected Delivery Date',
+    dataIndex: 'expectedDeliveryDate',
+    key: 'expectedDeliveryDate',
+    sortable: true,
+    resizable: true,
+  },
+  {
     title: '翻译任务 / Translation Task',
     dataIndex: 'taskTranslation',
     key: 'taskTranslation',
@@ -256,6 +282,8 @@ const loading = ref(false);
 const searchKeyword = ref('');
 const statusFilter = ref('all');
 const projectManagerFilter = ref('all');
+const deliveryDateFilter = ref(null);
+const dateFilterMode = ref('before');
 
 // 过滤后的项目列表
 const filteredProjects = computed(() => {
@@ -279,6 +307,52 @@ const filteredProjects = computed(() => {
       project.requestName.toLowerCase().includes(keyword) ||
       project.projectManager.toLowerCase().includes(keyword)
     );
+  }
+  
+  // 交付日期过滤
+  if (deliveryDateFilter.value) {
+    const filterDateObj = new Date(deliveryDateFilter.value);
+    // 设置时间为当天的23:59:59，确保包含当天
+    filterDateObj.setHours(23, 59, 59, 999);
+    
+    result = result.filter(project => {
+      // 处理项目日期可能是字符串的情况
+      if (!project.expectedDeliveryDate || project.expectedDeliveryDate === '未设置 / Not set') {
+        return false; // 没有设置交付日期的项目不显示
+      }
+      
+      let projectDateObj;
+      if (typeof project.expectedDeliveryDate === 'string') {
+        // 尝试解析日期字符串
+        const dateParts = project.expectedDeliveryDate.split(/[\/\-\.]/);
+        if (dateParts.length >= 3) {
+          // 假设格式为 MM/DD/YYYY 或 YYYY-MM-DD
+          const isYearFirst = dateParts[0].length === 4;
+          const year = isYearFirst ? parseInt(dateParts[0]) : parseInt(dateParts[2]);
+          const month = parseInt(isYearFirst ? dateParts[1] : dateParts[0]) - 1; // 月份从0开始
+          const day = parseInt(isYearFirst ? dateParts[2] : dateParts[1]);
+          projectDateObj = new Date(year, month, day);
+        } else {
+          // 直接尝试解析
+          projectDateObj = new Date(project.expectedDeliveryDate);
+        }
+      } else if (project.expectedDeliveryDate instanceof Date) {
+        projectDateObj = project.expectedDeliveryDate;
+      } else {
+        return false; // 无效的日期格式
+      }
+      
+      // 确保是有效的日期对象
+      if (isNaN(projectDateObj.getTime())) {
+        return false;
+      }
+      
+      if (dateFilterMode.value === 'before') {
+        return projectDateObj <= filterDateObj;
+      } else {
+        return projectDateObj >= filterDateObj;
+      }
+    });
   }
   
   return result;
@@ -395,6 +469,17 @@ const handleStatusChange = () => {
 
 const handleManagerChange = () => {
   console.log('项目经理筛选变更为:', projectManagerFilter.value);
+};
+
+const handleDeliveryDateChange = () => {
+  console.log('交付日期筛选变更为:', deliveryDateFilter.value);
+  console.log('日期筛选模式:', dateFilterMode.value === 'before' ? '早于所选日期' : '晚于所选日期');
+};
+
+const handleDateFilterReset = () => {
+  deliveryDateFilter.value = null;
+  dateFilterMode.value = 'before'; // 重置为默认的"早于"模式
+  console.log('已重置日期筛选');
 };
 
 // 事件处理函数 - 触发自定义事件到父组件
