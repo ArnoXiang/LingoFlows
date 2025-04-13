@@ -140,7 +140,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import axios from 'axios';
 import { IconFile } from '@arco-design/web-vue/es/icon';
@@ -315,8 +315,18 @@ watch(() => props.projectData, (newData) => {
     
     console.log('ProjectList - 处理后的项目数据:', processedProjects);
     projects.value = processedProjects;
+    
+    // 强制UI更新 - 添加以下代码
+    nextTick(() => {
+      console.log('ProjectList - 强制UI刷新');
+      // 如果存在进度条或状态标签，刷新它们
+      if (document.querySelectorAll('.arco-progress').length > 0) {
+        // 触发重新计算
+        window.dispatchEvent(new Event('resize'));
+      }
+    });
   }
-}, { immediate: true });
+}, { immediate: true, deep: true });  // 添加deep: true以确保深度监听对象变化
 
 const fetchProjects = async () => {
   if (!props.userId) {

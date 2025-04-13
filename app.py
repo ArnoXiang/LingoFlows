@@ -407,6 +407,53 @@ def update_project(project_id):
             update_fields.append("lqaNotes = %s")
             update_values.append(data['lqaNotes'])
         
+        # 添加翻译更新和LQA报告定稿的字段
+        if 'translationUpdateAssignee' in data:
+            update_fields.append("translationUpdateAssignee = %s")
+            update_values.append(data['translationUpdateAssignee'])
+        
+        if 'translationUpdateDeadline' in data:
+            update_fields.append("translationUpdateDeadline = %s")
+            try:
+                if data['translationUpdateDeadline']:
+                    if isinstance(data['translationUpdateDeadline'], str):
+                        date_str = data['translationUpdateDeadline'].split('T')[0] if 'T' in data['translationUpdateDeadline'] else data['translationUpdateDeadline']
+                        update_values.append(date_str)
+                    else:
+                        update_values.append(data['translationUpdateDeadline'])
+                else:
+                    update_values.append(None)
+            except Exception as e:
+                print(f"处理翻译更新截止日期时出错: {e}")
+                update_values.append(None)
+        
+        if 'translationUpdateNotes' in data:
+            update_fields.append("translationUpdateNotes = %s")
+            update_values.append(data['translationUpdateNotes'])
+        
+        if 'lqaReportFinalizationAssignee' in data:
+            update_fields.append("lqaReportFinalizationAssignee = %s")
+            update_values.append(data['lqaReportFinalizationAssignee'])
+        
+        if 'lqaReportFinalizationDeadline' in data:
+            update_fields.append("lqaReportFinalizationDeadline = %s")
+            try:
+                if data['lqaReportFinalizationDeadline']:
+                    if isinstance(data['lqaReportFinalizationDeadline'], str):
+                        date_str = data['lqaReportFinalizationDeadline'].split('T')[0] if 'T' in data['lqaReportFinalizationDeadline'] else data['lqaReportFinalizationDeadline']
+                        update_values.append(date_str)
+                    else:
+                        update_values.append(data['lqaReportFinalizationDeadline'])
+                else:
+                    update_values.append(None)
+            except Exception as e:
+                print(f"处理LQA报告定稿截止日期时出错: {e}")
+                update_values.append(None)
+        
+        if 'lqaReportFinalizationNotes' in data:
+            update_fields.append("lqaReportFinalizationNotes = %s")
+            update_values.append(data['lqaReportFinalizationNotes'])
+        
         # 检查并添加更新字段 - 其他信息
         if 'sourceLanguage' in data:
             update_fields.append("sourceLanguage = %s")
@@ -475,6 +522,25 @@ def update_project(project_id):
                     """)
                     db.commit()
                     print("成功添加字段")
+                
+                # 检查是否有翻译更新和LQA报告定稿的字段
+                cur.execute("SHOW COLUMNS FROM projectname LIKE 'translationUpdateAssignee'")
+                has_translation_update_assignee = cur.fetchone() is not None
+                
+                if not has_translation_update_assignee:
+                    # 添加必要的字段
+                    print("添加翻译更新和LQA报告定稿字段到projectname表")
+                    cur.execute("""
+                        ALTER TABLE projectname 
+                        ADD COLUMN translationUpdateAssignee VARCHAR(100),
+                        ADD COLUMN translationUpdateDeadline DATE,
+                        ADD COLUMN translationUpdateNotes TEXT,
+                        ADD COLUMN lqaReportFinalizationAssignee VARCHAR(100),
+                        ADD COLUMN lqaReportFinalizationDeadline DATE,
+                        ADD COLUMN lqaReportFinalizationNotes TEXT
+                    """)
+                    db.commit()
+                    print("成功添加翻译更新和LQA报告定稿字段")
             except Exception as e:
                 print(f"检查或添加字段时出错: {e}")
                 # 继续执行，即使添加字段失败
@@ -484,6 +550,67 @@ def update_project(project_id):
             db.commit()
             if cur.rowcount == 0:
                 return jsonify({"error": "Project not found or no changes made"}), 404
+            
+            # 处理任务分配数据
+            if 'taskAssignments' in data and isinstance(data['taskAssignments'], list) and data['taskAssignments']:
+                try:
+                    # 检查表是否存在
+                    cur.execute("SHOW TABLES LIKE 'project_task_assignments'")
+                    table_exists = cur.fetchone() is not None
+                    
+                    if not table_exists:
+                        # 创建项目任务分配表
+                        print("创建项目任务分配表")
+                        cur.execute("""
+                            CREATE TABLE IF NOT EXISTS project_task_assignments (
+                              id INT AUTO_INCREMENT PRIMARY KEY,
+                              project_id INT NOT NULL,
+                              task_type ENUM('translation', 'lqa', 'translationUpdate', 'lqaReportFinalization') NOT NULL,
+                              language VARCHAR(10) NOT NULL,
+                              assignee VARCHAR(100) NOT NULL,
+                              deadline DATE,
+                              notes TEXT,
+                              createTime DATETIME NOT NULL,
+                              created_by INT NOT NULL,
+                              FOREIGN KEY (project_id) REFERENCES projectname(id) ON DELETE CASCADE,
+                              FOREIGN KEY (created_by) REFERENCES users(id)
+                            )
+                        """)
+                        
+                        # 创建索引
+                        cur.execute("CREATE INDEX idx_task_assignments_project ON project_task_assignments(project_id)")
+                        cur.execute("CREATE INDEX idx_task_assignments_task ON project_task_assignments(task_type)")
+                        cur.execute("CREATE INDEX idx_task_assignments_language ON project_task_assignments(language)")
+                        
+                        db.commit()
+                        print("成功创建项目任务分配表")
+                    
+                    # 先删除该项目的所有任务分配
+                    cur.execute("DELETE FROM project_task_assignments WHERE project_id = %s", (project_id,))
+                    
+                    # 添加新的任务分配
+                    for assignment in data['taskAssignments']:
+                        cur.execute("""
+                            INSERT INTO project_task_assignments 
+                            (project_id, task_type, language, assignee, deadline, notes, createTime, created_by)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            project_id,
+                            assignment['task_type'],
+                            assignment['language'],
+                            assignment['assignee'],
+                            assignment['deadline'],
+                            assignment['notes'],
+                            datetime.now(),
+                            user_id
+                        ))
+                    
+                    db.commit()
+                    print(f"成功保存 {len(data['taskAssignments'])} 个任务分配")
+                except Exception as e:
+                    print(f"保存任务分配时出错: {e}")
+                    db.rollback()
+                    # 继续执行，不让任务分配保存失败影响整个项目更新
         
         return jsonify({"message": "Project updated successfully"})
     except Exception as e:
@@ -1819,6 +1946,50 @@ def init_db():
         db.commit()
     
     logger.info("数据库初始化完成")
+
+@app.route('/api/project-task-assignments/<int:project_id>', methods=['GET'])
+@token_required
+def get_project_task_assignments(project_id):
+    user_role = request.user.get('role')
+    user_id = request.user.get('user_id') or request.user.get('id')
+    
+    try:
+        # 检查项目是否存在
+        with db.cursor() as cur:
+            cur.execute("SELECT id FROM projectname WHERE id = %s", (project_id,))
+            project = cur.fetchone()
+            if not project:
+                return jsonify({"error": "Project not found"}), 404
+            
+            # 检查表是否存在
+            cur.execute("SHOW TABLES LIKE 'project_task_assignments'")
+            table_exists = cur.fetchone() is not None
+            
+            if not table_exists:
+                # 表不存在，返回空数组
+                return jsonify([])
+            
+            # 获取所有任务分配
+            cur.execute("""
+                SELECT id, project_id, task_type, language, assignee, deadline, notes, createTime
+                FROM project_task_assignments
+                WHERE project_id = %s
+                ORDER BY task_type, language
+            """, (project_id,))
+            
+            assignments = cur.fetchall()
+            
+            # 处理日期字段
+            for assignment in assignments:
+                if 'deadline' in assignment and assignment['deadline']:
+                    assignment['deadline'] = assignment['deadline'].isoformat()
+                if 'createTime' in assignment and assignment['createTime']:
+                    assignment['createTime'] = assignment['createTime'].isoformat()
+            
+            return jsonify(assignments)
+    except Exception as e:
+        print(f"获取项目任务分配时出错: {e}")
+        return jsonify({"error": f"Failed to get project task assignments: {str(e)}"}), 500
 
 if __name__ == '__main__':
     logger.info("==========================================")

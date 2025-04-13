@@ -22,6 +22,26 @@ CREATE TABLE IF NOT EXISTS projectname (
   created_by INT
 );
 
+-- 项目任务分配表 - 存储每个项目中特定任务和语言的分配信息
+CREATE TABLE IF NOT EXISTS project_task_assignments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  project_id INT NOT NULL,                          -- 关联的项目ID
+  task_type ENUM('translation', 'lqa', 'translationUpdate', 'lqaReportFinalization') NOT NULL, -- 任务类型
+  language VARCHAR(10) NOT NULL,                    -- 语言代码
+  assignee VARCHAR(100) NOT NULL,                   -- 任务负责人
+  deadline DATE,                                    -- 截止日期
+  notes TEXT,                                       -- 备注
+  createTime DATETIME NOT NULL,                     -- 创建时间
+  created_by INT NOT NULL,                          -- 创建者ID
+  FOREIGN KEY (project_id) REFERENCES projectname(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- 创建任务分配表的索引
+CREATE INDEX idx_task_assignments_project ON project_task_assignments(project_id);
+CREATE INDEX idx_task_assignments_task ON project_task_assignments(task_type);
+CREATE INDEX idx_task_assignments_language ON project_task_assignments(language);
+
 -- 请求表
 CREATE TABLE IF NOT EXISTS requests (
   id INT AUTO_INCREMENT PRIMARY KEY,

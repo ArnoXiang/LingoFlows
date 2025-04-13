@@ -237,6 +237,22 @@ const handleEditProject = (project) => {
 // 处理项目更新
 const handleProjectUpdated = (updatedProject) => {
   Message.success('项目已更新 / Project has been updated');
+  
+  // 更新后立即刷新项目列表
+  loadProjects().then(() => {
+    // 在项目列表数据中找到并更新相应项目
+    const index = projects.value.findIndex(p => p.id === updatedProject.id);
+    if (index !== -1) {
+      console.log('更新项目列表中的项目数据:', updatedProject);
+      // 确保UI更新 - 直接修改数组中的元素
+      projects.value.splice(index, 1, updatedProject);
+      
+      // 触发视图更新 - 创建数组的浅拷贝以确保Vue检测到变化
+      projects.value = [...projects.value];
+      
+      console.log('通知刷新项目列表:', projects.value.length, '个项目');
+    }
+  });
 };
 
 // 处理发送项目邮件
