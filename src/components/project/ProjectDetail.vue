@@ -635,10 +635,15 @@ const targetLanguagesList = computed(() => {
     }
 
     // 如果目标语言是字符串，按逗号分割并过滤掉空值
-    return project.value.targetLanguages
-      .split(',')
-      .map(lang => lang.trim())
-      .filter(Boolean);
+    if (typeof project.value.targetLanguages === 'string') {
+      return project.value.targetLanguages
+        .split(',')
+        .map(lang => lang.trim())
+        .filter(Boolean);
+    }
+
+    console.warn('目标语言不是数组也不是字符串:', typeof project.value.targetLanguages);
+    return [];
   } catch (error) {
     console.error('处理目标语言列表时出错:', error);
     return [];
@@ -705,30 +710,64 @@ const formatLanguageAssignmentsForSubmit = () => {
   
   if (!project.value || !project.value.id) return result;
   
+  // 获取所有目标语言
+  const allLanguages = targetLanguagesList.value;
+  if (!allLanguages || allLanguages.length === 0) return result;
+  
+  // 确保所有目标语言和任务类型的组合都有分配记录
+  ensureAllLanguageTasksInitialized(allLanguages);
+  
   taskTypes.forEach(taskType => {
     if (languageAssignments.value[taskType]) {
-      Object.keys(languageAssignments.value[taskType]).forEach(lang => {
-        const assignment = languageAssignments.value[taskType][lang];
-        if (assignment.assignee) {
-          let deadline = assignment.deadline;
-          if (deadline instanceof Date) {
-            deadline = deadline.toISOString().split('T')[0];
-          }
-          
-          result.push({
-            project_id: project.value.id,
-            task_type: taskType,
-            language: lang,
-            assignee: assignment.assignee,
-            deadline: deadline,
-            notes: assignment.notes || ''
-          });
+      allLanguages.forEach(lang => {
+        // 总是包含所有语言的分配，即使assignee为空
+        const assignment = getLanguageAssignment(taskType, lang);
+        let deadline = assignment.deadline;
+        if (deadline instanceof Date) {
+          deadline = deadline.toISOString().split('T')[0];
         }
+        
+        result.push({
+          project_id: project.value.id,
+          task_type: taskType,
+          language: lang,
+          assignee: assignment.assignee || '', // 即使为空也提交
+          deadline: deadline,
+          notes: assignment.notes || ''
+        });
       });
     }
   });
   
+  console.log('准备提交的任务分配数据:', result);
   return result;
+};
+
+// 确保所有语言的所有任务类型都被初始化
+const ensureAllLanguageTasksInitialized = (languages) => {
+  if (!languages || languages.length === 0) return;
+  
+  const taskTypes = ['translation', 'lqa', 'translationUpdate', 'lqaReportFinalization'];
+  
+  taskTypes.forEach(taskType => {
+    if (!languageAssignments.value[taskType]) {
+      languageAssignments.value[taskType] = {};
+    }
+    
+    languages.forEach(lang => {
+      if (!lang) return;
+      
+      if (!languageAssignments.value[taskType][lang]) {
+        languageAssignments.value[taskType][lang] = {
+          assignee: '',
+          deadline: null,
+          notes: ''
+        };
+      }
+    });
+  });
+  
+  console.log('已确保所有语言任务初始化:', Object.keys(languageAssignments.value.translation));
 };
 
 // 为表格获取任务分配数据
@@ -844,8 +883,7 @@ const loadProjectTaskAssignments = async (projectId) => {
     return Promise.resolve([]);
   } catch (error) {
     console.error('获取项目任务分配数据失败:', error);
-    // 即使获取失败，也要初始化空的任务分配
-    initLanguageAssignments(targetLanguagesList.value);
+    // 确保即使API调用失败，也不会丢失本地的任务分配数据
     return Promise.reject(error);
   }
 };
@@ -884,6 +922,20 @@ watch(() => activeTabKey.value, async (newVal) => {
     }
   }
 });
+
+// 监听编辑模式和项目变化，确保所有语言的任务分配都被初始化
+watch(
+  [() => isEditing.value, () => project.value, () => targetLanguagesList.value], 
+  ([editing, currentProject, languages]) => {
+    if (editing && currentProject && languages && languages.length > 0) {
+      console.log('编辑模式下检测到项目或语言变更，确保所有任务分配初始化:', languages);
+      nextTick(() => {
+        ensureAllLanguageTasksInitialized(languages);
+      });
+    }
+  },
+  { deep: true }
+);
 
 // 方法
 const openDrawer = (currentProject, mode = 'view') => {
@@ -938,6 +990,14 @@ const openDrawer = (currentProject, mode = 'view') => {
     }
   }
   
+  // 处理目标语言 - 确保它总是一个数组
+  let targetLanguages = currentProject.targetLanguages;
+  if (typeof targetLanguages === 'string') {
+    targetLanguages = targetLanguages.split(',').map(lang => lang.trim()).filter(Boolean);
+  } else if (!Array.isArray(targetLanguages)) {
+    targetLanguages = [];
+  }
+  
   // 初始化任务字段
   const initTaskField = (status, assignee, deadline, notes) => {
     return {
@@ -951,6 +1011,7 @@ const openDrawer = (currentProject, mode = 'view') => {
   // 克隆项目数据，避免直接修改原始数据
   project.value = {
     ...currentProject,
+    targetLanguages, // 使用处理后的目标语言数组
     expectedDeliveryDate,
     tasks: {
       translation: initTaskField(
@@ -1012,28 +1073,34 @@ const openDrawer = (currentProject, mode = 'view') => {
   }
   
   // 初始化语言分配
-  const languages = Array.isArray(project.value.targetLanguages) 
-    ? project.value.targetLanguages 
-    : (project.value.targetLanguages || '').split(',').map(lang => lang.trim()).filter(Boolean);
+  console.log("目标语言处理前:", currentProject.targetLanguages);
+  console.log("处理后的目标语言数组:", targetLanguages);
   
-  console.log("目标语言列表:", languages);
+  const languages = targetLanguagesList.value;
+  console.log("经过计算属性处理后的目标语言列表:", languages);
   
   // 先初始化空的分配数据
   initLanguageAssignments(languages);
   
   // 不管是编辑模式还是查看模式，都加载项目的任务分配数据
   if (project.value && project.value.id) {
-    loadProjectTaskAssignments(project.value.id).then(() => {
+    loadProjectTaskAssignments(project.value.id).then((assignments) => {
       // 确保在任务分配数据加载完成后更新UI
       if (!isEditing.value) {
         console.log('查看模式：任务分配数据已加载');
-        // 强制更新组件以显示新的数据
-        nextTick(() => {
-          // 如果需要，可以在这里添加额外的UI更新逻辑
-        });
+      } else {
+        console.log('编辑模式：任务分配数据已加载:', assignments);
+        // 确保所有语言的所有任务类型都被正确初始化
+        initLanguageAssignments(languages, languageAssignments.value);
       }
+      // 强制更新组件以显示新的数据
+      nextTick(() => {
+        // 如果需要，可以在这里添加额外的UI更新逻辑
+      });
     }).catch(error => {
       console.error('加载任务分配数据失败:', error);
+      // 即使加载失败，也要确保所有语言都被初始化
+      initLanguageAssignments(languages);
     });
   }
   
@@ -1090,6 +1157,15 @@ const saveProject = async () => {
   }
   
   try {
+    // 显示保存中状态 - 设置为1秒后自动消失
+    Message.loading({
+      content: '正在保存项目 / Saving project...',
+      duration: 1000, // 1秒后自动关闭
+    });
+    
+    // 确保所有语言的任务分配都被初始化
+    ensureAllLanguageTasksInitialized(targetLanguagesList.value);
+    
     // 格式化日期为字符串
     let formattedExpectedDeliveryDate = project.value.expectedDeliveryDate;
     if (formattedExpectedDeliveryDate instanceof Date) {
@@ -1172,22 +1248,62 @@ const saveProject = async () => {
     const response = await axios.put(`http://localhost:5000/api/projects/${updatedProject.id}`, updatedProject);
     
     if (response.status === 200) {
-      Message.success('项目更新成功 / Project updated successfully');
+      // 处理成功响应
+      const successMsg = response.data.message || '项目更新成功 / Project updated successfully';
+      Message.success(successMsg);
       visible.value = false;
       emit('update', updatedProject); // 通知父组件更新成功
     } else {
-      throw new Error('更新失败 / Update failed');
+      // 处理其他非错误但非200的响应
+      const infoMsg = response.data.message || '操作完成 / Operation completed';
+      Message.info(infoMsg);
     }
   } catch (error) {
     console.error('Error updating project:', error);
     
     let errorMessage = '更新失败 / Update failed';
+    let errorType = 'error'; // 默认为错误
     
     if (error.response) {
       // 服务器返回了错误响应
       console.error('错误响应:', error.response.data);
       console.error('状态码:', error.response.status);
-      errorMessage = `更新失败: ${error.response.data?.error || error.response.statusText}`;
+      
+      // 根据状态码定制错误消息
+      switch (error.response.status) {
+        case 404:
+          // 处理404错误 - 不要当作错误处理，而是提示用户刷新
+          errorMessage = '找不到项目或无需更新，可能已被修改 / Project not found or no changes needed';
+          errorType = 'info'; // 使用info类型而非error
+          
+          // 用户可能看到了过时的数据，建议刷新
+          setTimeout(() => {
+            Message.info('建议刷新页面获取最新数据 / Consider refreshing to get latest data');
+          }, 2000);
+          break;
+          
+        case 403:
+          errorMessage = '您没有权限执行此操作 / You do not have permission to perform this action';
+          break;
+          
+        case 400:
+          errorMessage = `请求格式错误: ${error.response.data?.error || '未知错误'}`;
+          break;
+          
+        case 206: // 部分内容 - 项目更新但任务分配失败
+          errorMessage = '项目已更新但任务分配保存失败，请稍后再试 / Project updated but task assignments failed';
+          errorType = 'warning'; // 使用警告类型
+          
+          // 在一段时间后仍然关闭抽屉，因为基本信息已更新成功
+          setTimeout(() => {
+            visible.value = false;
+            emit('update', updatedProject); // 仍然通知父组件更新
+          }, 3000);
+          break;
+          
+        default:
+          errorMessage = `更新失败: ${error.response.data?.error || error.response.statusText}`;
+      }
     } else if (error.request) {
       // 请求已发送但没有收到响应
       console.error('请求已发送但没有收到响应:', error.request);
@@ -1197,7 +1313,14 @@ const saveProject = async () => {
       errorMessage = `更新失败: ${error.message}`;
     }
     
-    Message.error(errorMessage);
+    // 根据错误类型显示不同的消息样式
+    if (errorType === 'error') {
+      Message.error(errorMessage);
+    } else if (errorType === 'warning') {
+      Message.warning(errorMessage);
+    } else {
+      Message.info(errorMessage);
+    }
   }
 };
 

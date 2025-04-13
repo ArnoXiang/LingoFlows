@@ -21,7 +21,7 @@
         <!-- Project Schedule 表格 -->
         <a-form-item field="projectSchedule" label="项目计划 / Project Schedule">
           <div class="project-schedule-table">
-            <a-table :columns="scheduleColumns" :data="scheduleData" :bordered="true" :pagination="false" size="small">
+            <a-table :columns="scheduleColumns" :data="detailedScheduleData" :bordered="true" :pagination="false" size="small">
               <template #empty>
                 <div>项目数据不可用 / Project data unavailable</div>
               </template>
@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, computed, defineProps, defineEmits } from 'vue';
+import { ref, computed, defineProps, defineEmits, onMounted } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import axios from 'axios';
 import { IconEye } from '@arco-design/web-vue/es/icon';
@@ -83,6 +83,7 @@ const visible = ref(false);
 const sendingEmail = ref(false);
 const emailAttachments = ref([]);
 const currentProject = ref(null);
+const taskAssignments = ref([]);
 
 // 表单数据
 const emailForm = ref({
@@ -101,6 +102,11 @@ const scheduleColumns = [
     key: 'task',
   },
   {
+    title: '语言 / Language',
+    dataIndex: 'language',
+    key: 'language',
+  },
+  {
     title: '截止日期 / Deadline',
     dataIndex: 'deadline',
     key: 'deadline',
@@ -117,10 +123,77 @@ const scheduleColumns = [
   }
 ];
 
-// 表格数据
+// 基本表格数据
 const scheduleData = computed(() => {
   if (!currentProject.value) return [];
   return getScheduleData(currentProject.value);
+});
+
+// 详细表格数据（包含每个任务的语言和负责人）
+const detailedScheduleData = computed(() => {
+  if (!currentProject.value || !taskAssignments.value.length) return scheduleData.value;
+  
+  // 按任务类型和语言组织任务分配数据
+  const assignmentsByTaskType = {};
+  taskAssignments.value.forEach(assignment => {
+    if (!assignmentsByTaskType[assignment.task_type]) {
+      assignmentsByTaskType[assignment.task_type] = {};
+    }
+    assignmentsByTaskType[assignment.task_type][assignment.language] = assignment;
+  });
+  
+  // 基于任务分配数据生成详细表格数据
+  const result = [];
+  
+  // 将任务类型映射到显示名称
+  const taskTypeDisplayNames = {
+    'translation': 'Translation',
+    'lqa': 'LQA',
+    'translationUpdate': 'Translation Update',
+    'lqaReportFinalization': 'LQA Report Finalization'
+  };
+  
+  // 获取项目的目标语言列表
+  const targetLanguages = Array.isArray(currentProject.value.targetLanguages) 
+    ? currentProject.value.targetLanguages 
+    : (currentProject.value.targetLanguages || '').split(',').filter(lang => lang.trim());
+  
+  // 获取语言的本地化名称
+  const getLanguageDisplayName = (code) => {
+    try {
+      return new Intl.DisplayNames(['en'], { type: 'language' }).of(code);
+    } catch (e) {
+      // fallback
+      return code.toUpperCase();
+    }
+  };
+  
+  // 处理每个任务类型
+  Object.keys(assignmentsByTaskType).forEach(taskType => {
+    const taskDisplayName = taskTypeDisplayNames[taskType] || taskType;
+    
+    // 对于每种语言，添加一行数据
+    targetLanguages.forEach(language => {
+      const assignment = assignmentsByTaskType[taskType][language];
+      
+      if (assignment) {
+        result.push({
+          task: taskDisplayName,
+          language: getLanguageDisplayName(language),
+          deadline: assignment.deadline ? new Date(assignment.deadline).toLocaleDateString() : 'TBD',
+          owner: assignment.assignee || 'Not Assigned',
+          notes: assignment.notes || ''
+        });
+      }
+    });
+  });
+  
+  // 如果没有任务分配数据，则使用默认数据
+  if (result.length === 0) {
+    return scheduleData.value;
+  }
+  
+  return result;
 });
 
 // 计算属性
@@ -131,8 +204,37 @@ const uploadHeaders = computed(() => {
   };
 });
 
+// 加载项目任务分配数据
+const loadProjectTaskAssignments = async (projectId) => {
+  if (!projectId) return;
+  
+  try {
+    // 获取token
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('未找到认证令牌，无法获取任务分配数据');
+      return;
+    }
+    
+    // 发送请求获取任务分配数据
+    const response = await axios.get(`http://localhost:5000/api/project-task-assignments/${projectId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (response.data && Array.isArray(response.data)) {
+      taskAssignments.value = response.data;
+      console.log('已加载项目任务分配数据:', response.data);
+    }
+  } catch (error) {
+    console.error('获取项目任务分配数据失败:', error);
+    taskAssignments.value = [];
+  }
+};
+
 // 打开邮件发送对话框
-const openEmailModal = (project) => {
+const openEmailModal = async (project) => {
   if (props.userRole !== 'LM') {
     Message.error('只有本地化经理可以发送项目邮件 / Only Localization Managers can send project emails');
     return;
@@ -140,6 +242,9 @@ const openEmailModal = (project) => {
 
   // 保存当前项目信息
   currentProject.value = project;
+
+  // 加载项目任务分配数据
+  await loadProjectTaskAssignments(project.id);
 
   // 设置邮件主题
   emailForm.value.subject = `项目更新: ${project.projectName} / Project Update: ${project.projectName}`;
@@ -165,16 +270,18 @@ const generateEmailContent = () => {
   textSchedule += '--------------------------------\n';
   
   // 添加表头
-  textSchedule += 'Task                     Deadline                Owner(s)\n';
+  textSchedule += 'Task             Language        Deadline        Owner(s)         Notes\n';
   textSchedule += '--------------------------------\n';
   
   // 添加任务行
-  scheduleData.value.forEach(item => {
-    const task = item.task.padEnd(25);
-    const deadline = item.deadline.padEnd(25);
-    const owner = item.owner;
+  detailedScheduleData.value.forEach(item => {
+    const task = (item.task || '').padEnd(16);
+    const language = (item.language || '').padEnd(15);
+    const deadline = (item.deadline || '').padEnd(15);
+    const owner = (item.owner || '').padEnd(16);
+    const notes = item.notes || '';
     
-    textSchedule += `${task}${deadline}${owner}\n`;
+    textSchedule += `${task}${language}${deadline}${owner}${notes}\n`;
   });
   textSchedule += '--------------------------------\n\n';
   
@@ -186,20 +293,24 @@ const generateEmailContent = () => {
         <thead>
           <tr>
             <th style="border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f3f5;font-weight:bold">Task</th>
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f3f5;font-weight:bold">Language</th>
             <th style="border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f3f5;font-weight:bold">Deadline</th>
             <th style="border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f3f5;font-weight:bold">Owner(s)</th>
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f3f5;font-weight:bold">Notes</th>
           </tr>
         </thead>
         <tbody>
   `;
   
   // 添加表格行
-  scheduleData.value.forEach(item => {
+  detailedScheduleData.value.forEach(item => {
     htmlSchedule += `
       <tr>
-        <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.task}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.deadline}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.owner}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.task || ''}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.language || ''}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.deadline || ''}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.owner || ''}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:left">${item.notes || ''}</td>
       </tr>
     `;
   });

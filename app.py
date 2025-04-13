@@ -490,71 +490,76 @@ def update_project(project_id):
             update_fields.append("additionalRequirements = %s")
             update_values.append(data['additionalRequirements'])
         
-        # 如果没有要更新的字段，返回错误
-        if not update_fields:
-            return jsonify({"error": "No fields to update"}), 400
-        
-        # 构建更新SQL
-        sql = "UPDATE projectname SET " + ", ".join(update_fields) + " WHERE id = %s"
-        update_values.append(project_id)
-        
-        print(f"更新SQL: {sql}")
-        print(f"更新值: {update_values}")
-        
-        # 执行更新
-        with db.cursor() as cur:
-            # 首先检查表是否有必要的字段
-            try:
-                cur.execute("SHOW COLUMNS FROM projectname LIKE 'translationAssignee'")
-                has_translation_assignee = cur.fetchone() is not None
-                
-                if not has_translation_assignee:
-                    # 添加必要的字段
-                    print("添加任务详细信息字段到projectname表")
-                    cur.execute("""
-                        ALTER TABLE projectname 
-                        ADD COLUMN translationAssignee VARCHAR(100),
-                        ADD COLUMN translationDeadline DATE,
-                        ADD COLUMN translationNotes TEXT,
-                        ADD COLUMN lqaAssignee VARCHAR(100),
-                        ADD COLUMN lqaDeadline DATE,
-                        ADD COLUMN lqaNotes TEXT
-                    """)
-                    db.commit()
-                    print("成功添加字段")
-                
-                # 检查是否有翻译更新和LQA报告定稿的字段
-                cur.execute("SHOW COLUMNS FROM projectname LIKE 'translationUpdateAssignee'")
-                has_translation_update_assignee = cur.fetchone() is not None
-                
-                if not has_translation_update_assignee:
-                    # 添加必要的字段
-                    print("添加翻译更新和LQA报告定稿字段到projectname表")
-                    cur.execute("""
-                        ALTER TABLE projectname 
-                        ADD COLUMN translationUpdateAssignee VARCHAR(100),
-                        ADD COLUMN translationUpdateDeadline DATE,
-                        ADD COLUMN translationUpdateNotes TEXT,
-                        ADD COLUMN lqaReportFinalizationAssignee VARCHAR(100),
-                        ADD COLUMN lqaReportFinalizationDeadline DATE,
-                        ADD COLUMN lqaReportFinalizationNotes TEXT
-                    """)
-                    db.commit()
-                    print("成功添加翻译更新和LQA报告定稿字段")
-            except Exception as e:
-                print(f"检查或添加字段时出错: {e}")
-                # 继续执行，即使添加字段失败
+        # 如果有需要更新的项目字段，执行更新
+        project_updated = False
+        if update_fields:
+            # 构建更新SQL
+            sql = "UPDATE projectname SET " + ", ".join(update_fields) + " WHERE id = %s"
+            update_values.append(project_id)
+            
+            print(f"更新SQL: {sql}")
+            print(f"更新值: {update_values}")
             
             # 执行更新
-            cur.execute(sql, update_values)
-            db.commit()
-            if cur.rowcount == 0:
-                return jsonify({"error": "Project not found or no changes made"}), 404
-            
-            # 处理任务分配数据
-            if 'taskAssignments' in data and isinstance(data['taskAssignments'], list) and data['taskAssignments']:
+            with db.cursor() as cur:
+                # 首先检查表是否有必要的字段
                 try:
-                    # 检查表是否存在
+                    cur.execute("SHOW COLUMNS FROM projectname LIKE 'translationAssignee'")
+                    has_translation_assignee = cur.fetchone() is not None
+                    
+                    if not has_translation_assignee:
+                        # 添加必要的字段
+                        print("添加任务详细信息字段到projectname表")
+                        cur.execute("""
+                            ALTER TABLE projectname 
+                            ADD COLUMN translationAssignee VARCHAR(100),
+                            ADD COLUMN translationDeadline DATE,
+                            ADD COLUMN translationNotes TEXT,
+                            ADD COLUMN lqaAssignee VARCHAR(100),
+                            ADD COLUMN lqaDeadline DATE,
+                            ADD COLUMN lqaNotes TEXT
+                        """)
+                        db.commit()
+                        print("成功添加字段")
+                    
+                    # 检查是否有翻译更新和LQA报告定稿的字段
+                    cur.execute("SHOW COLUMNS FROM projectname LIKE 'translationUpdateAssignee'")
+                    has_translation_update_assignee = cur.fetchone() is not None
+                    
+                    if not has_translation_update_assignee:
+                        # 添加必要的字段
+                        print("添加翻译更新和LQA报告定稿字段到projectname表")
+                        cur.execute("""
+                            ALTER TABLE projectname 
+                            ADD COLUMN translationUpdateAssignee VARCHAR(100),
+                            ADD COLUMN translationUpdateDeadline DATE,
+                            ADD COLUMN translationUpdateNotes TEXT,
+                            ADD COLUMN lqaReportFinalizationAssignee VARCHAR(100),
+                            ADD COLUMN lqaReportFinalizationDeadline DATE,
+                            ADD COLUMN lqaReportFinalizationNotes TEXT
+                        """)
+                        db.commit()
+                        print("成功添加翻译更新和LQA报告定稿字段")
+                except Exception as e:
+                    print(f"检查或添加字段时出错: {e}")
+                    # 继续执行，即使添加字段失败
+                
+                # 执行更新
+                cur.execute(sql, update_values)
+                db.commit()
+                project_updated = cur.rowcount > 0
+                print(f"项目基本信息更新结果: {'成功' if project_updated else '无变化'}, 影响行数: {cur.rowcount}")
+                
+                # 已移除对rowcount为0的检查，继续处理任务分配数据
+        else:
+            print("没有项目基本信息需要更新")
+            
+        # 处理任务分配数据
+        task_assignments_updated = False
+        if 'taskAssignments' in data and isinstance(data['taskAssignments'], list) and data['taskAssignments']:
+            try:
+                # 检查表是否存在
+                with db.cursor() as cur:
                     cur.execute("SHOW TABLES LIKE 'project_task_assignments'")
                     table_exists = cur.fetchone() is not None
                     
@@ -585,10 +590,18 @@ def update_project(project_id):
                         db.commit()
                         print("成功创建项目任务分配表")
                     
+                    # 查询当前项目的所有任务分配
+                    cur.execute("SELECT COUNT(*) as count FROM project_task_assignments WHERE project_id = %s", (project_id,))
+                    result = cur.fetchone()
+                    existing_assignments_count = result['count'] if result else 0
+                    
                     # 先删除该项目的所有任务分配
                     cur.execute("DELETE FROM project_task_assignments WHERE project_id = %s", (project_id,))
+                    deleted_count = cur.rowcount
+                    print(f"已删除 {deleted_count} 个现有任务分配")
                     
                     # 添加新的任务分配
+                    insert_count = 0
                     for assignment in data['taskAssignments']:
                         cur.execute("""
                             INSERT INTO project_task_assignments 
@@ -604,15 +617,31 @@ def update_project(project_id):
                             datetime.now(),
                             user_id
                         ))
+                        insert_count += 1
                     
                     db.commit()
-                    print(f"成功保存 {len(data['taskAssignments'])} 个任务分配")
-                except Exception as e:
-                    print(f"保存任务分配时出错: {e}")
-                    db.rollback()
-                    # 继续执行，不让任务分配保存失败影响整个项目更新
+                    print(f"成功保存 {insert_count} 个任务分配")
+                    
+                    # 判断任务分配是否有实际变化
+                    task_assignments_updated = insert_count != existing_assignments_count or insert_count > 0
+                    print(f"任务分配更新结果: {'成功' if task_assignments_updated else '无变化'}")
+            except Exception as e:
+                print(f"保存任务分配时出错: {e}")
+                db.rollback()
+                # 如果只有任务分配保存失败，并且项目更新成功，应该返回部分成功的消息
+                if project_updated:
+                    return jsonify({
+                        "message": "Project updated but task assignments failed", 
+                        "error": str(e)
+                    }), 206  # 206 Partial Content
+                return jsonify({"error": f"Failed to update task assignments: {str(e)}"}), 500
         
-        return jsonify({"message": "Project updated successfully"})
+        # 如果项目基本信息或任务分配有更新，返回成功
+        if project_updated or task_assignments_updated:
+            return jsonify({"message": "Project updated successfully"})
+        else:
+            # 如果既没有项目字段更新也没有任务分配更新，返回提示但不是错误
+            return jsonify({"message": "No changes detected"}), 200
     except Exception as e:
         print(f"更新项目时出错: {e}")
         db.rollback()
