@@ -6,7 +6,7 @@ An integrated platform that combines AI chat capabilities, translation services,
 **LingoFlows - Collaborative Localization Management System (CLMS)**
 
 Yizhuo Xiang
->>>>>>> dcdeeb93bcf01670b93ffa5a055d3932a7fa9beb
+
 
 **Overview**
 
@@ -298,7 +298,6 @@ UI Features
 ` `Conclusion
 
 LingoFlows is designed to enhance efficiency, transparency, and collaboration in localization project management. By standardizing workflows and automating key processes, it ensures smooth operations for all stakeholders. 
->>>>>>> dcdeeb93bcf01670b93ffa5a055d3932a7fa9beb
 
 
 
@@ -307,11 +306,8 @@ LingoFlows is designed to enhance efficiency, transparency, and collaboration in
 
 
 
-<<<<<<< HEAD
-## License
-This project is licensed under the MIT License.
+=============
 
 ## Developer
 Yizhuo Xiang
-=======
->>>>>>> dcdeeb93bcf01670b93ffa5a055d3932a7fa9beb
+
