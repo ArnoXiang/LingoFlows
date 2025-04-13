@@ -1,5 +1,5 @@
-<<<<<<< HEAD
 # LingoFlows - Collaborative Localization Management Platform
+
 
 An integrated platform that combines AI chat capabilities, translation services, and project management functionalities, specifically designed for localization workflows.
 =======
@@ -12,7 +12,7 @@ Yizhuo Xiang
 
 LingoFlows is a streamlined and efficient localization project management platform designed to facilitate seamless collaboration between business stakeholders, project managers, and financial teams. It simplifies request submissions, project execution, and financial oversight, ensuring transparency, efficiency, and scalability in localization workflows.
 
-<<<<<<< HEAD
+
 ### 2. Translation Tool
 - Professional translation services
 - Multi-language support
@@ -98,7 +98,7 @@ LingoFlows is a streamlined and efficient localization project management platfo
 Description automatically generated](Aspose.Words.f62be7c3-b534-4baf-9e4f-44d57eba7483.001.png)
 
 Workflow (basic)
->>>>>>> dcdeeb93bcf01670b93ffa5a055d3932a7fa9beb
+
 
 ` `**Key Features**
 
