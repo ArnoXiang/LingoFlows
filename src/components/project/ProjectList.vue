@@ -3,7 +3,21 @@
     <!-- 操作按钮区域 -->
     <div style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
       <a-space>
-        <a-button type="primary" @click="refreshProjects">
+        <a-dropdown trigger="click" v-if="userRole === 'LM' || userRole === 'BO'" :disabled="exportLoading">
+          <a-button type="primary" :loading="exportLoading">
+            导出CSV / Export CSV
+            <icon-down v-if="!exportLoading" />
+          </a-button>
+          <template #content>
+            <a-doption @click="exportToCSV(true)" :disabled="filteredProjects.length === 0">
+              导出筛选数据 / Export Filtered Data ({{ filteredProjects.length }})
+            </a-doption>
+            <a-doption @click="exportToCSV(false)" :disabled="projects.length === 0">
+              导出全部数据 / Export All Data ({{ projects.length }})
+            </a-doption>
+          </template>
+        </a-dropdown>
+        <a-button type="primary" @click="refreshProjects" :loading="loading">
           刷新列表 / Refresh List
         </a-button>
       </a-space>
@@ -162,7 +176,7 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import axios from 'axios';
-import { IconFile } from '@arco-design/web-vue/es/icon';
+import { IconFile, IconDownload, IconDown } from '@arco-design/web-vue/es/icon';
 import { 
   getStatusColor, 
   getStatusText, 
@@ -279,6 +293,7 @@ const columns = [
 // 状态
 const projects = ref([]);
 const loading = ref(false);
+const exportLoading = ref(false);
 const searchKeyword = ref('');
 const statusFilter = ref('all');
 const projectManagerFilter = ref('all');
@@ -480,6 +495,109 @@ const handleDateFilterReset = () => {
   deliveryDateFilter.value = null;
   dateFilterMode.value = 'before'; // 重置为默认的"早于"模式
   console.log('已重置日期筛选');
+};
+
+// 导出CSV功能
+const exportToCSV = async (filteredOnly = true) => {
+  try {
+    exportLoading.value = true;
+    // 确定要导出的数据
+    const dataToExport = filteredOnly ? filteredProjects.value : projects.value;
+    
+    // 检查是否有数据可导出
+    if (dataToExport.length === 0) {
+      Message.warning('没有数据可导出 / No data to export');
+      return;
+    }
+    
+    // 显示导出开始提示
+    Message.loading({
+      content: `正在准备导出${dataToExport.length}条项目数据 / Preparing to export ${dataToExport.length} projects`,
+      duration: 1000,
+    });
+    
+    // CSV标题行
+    const headers = [
+      '项目名称 / Project Name',
+      '项目状态 / Project Status',
+      '请求名称 / Request Name',
+      '项目经理 / Project Manager',
+      '创建时间 / Create Time',
+      '预期交付日期 / Expected Delivery Date',
+      '翻译任务 / Translation Task',
+      'LQA任务 / LQA Task',
+      '翻译更新 / Translation Update',
+      'LQA报告定稿 / LQA Report Finalization'
+    ];
+    
+    // 将项目数据转换为CSV行
+    const csvData = dataToExport.map(project => {
+      return [
+        project.projectName,
+        getStatusText(project.projectStatus), // 转换状态代码为可读文本
+        project.requestName,
+        project.projectManager,
+        project.createTime,
+        project.expectedDeliveryDate || '未设置 / Not set',
+        getTaskText(project.taskTranslation), // 转换任务状态为可读文本
+        getTaskText(project.taskLQA),
+        getTaskText(project.taskTranslationUpdate),
+        getTaskText(project.taskLQAReportFinalization)
+      ];
+    });
+    
+    // 将CSV标题和数据合并
+    csvData.unshift(headers);
+    
+    // 将数组转换为CSV字符串 (支持UTF-8编码的BOM头，确保Excel正确识别中文)
+    const BOM = "\uFEFF"; // UTF-8 BOM
+    const csvContent = BOM + csvData.map(row => 
+      row.map(cell => 
+        // 处理包含逗号、引号或换行符的单元格
+        typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))
+          ? `"${cell.replace(/"/g, '""')}"` // 将双引号替换为两个双引号
+          : cell
+      ).join(',')
+    ).join('\n');
+    
+    // 使用setTimeout给UI一点时间显示加载状态
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // 创建Blob对象
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // 创建下载链接
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    // 设置下载属性
+    const dateStr = new Date().toISOString().slice(0, 10); // 格式: YYYY-MM-DD
+    const fileType = filteredOnly ? '筛选项目' : '全部项目';
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${fileType}_${dateStr}.csv`);
+    link.style.visibility = 'hidden';
+    
+    // 添加到文档并触发下载
+    document.body.appendChild(link);
+    link.click();
+    
+    // 清理
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    Message.success({
+      content: `成功导出${dataToExport.length}条项目数据 / Successfully exported ${dataToExport.length} projects`,
+      duration: 3000
+    });
+  } catch (error) {
+    console.error('导出CSV时发生错误:', error);
+    Message.error({
+      content: '导出失败，请重试 / Export failed, please try again',
+      duration: 3000
+    });
+  } finally {
+    exportLoading.value = false;
+  }
 };
 
 // 事件处理函数 - 触发自定义事件到父组件
