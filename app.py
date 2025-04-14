@@ -1319,22 +1319,43 @@ def get_quotes():
     user_role = request.user.get('role')
     user_id = request.user.get('user_id')
     
+    # 检查是否有项目ID过滤
+    project_id = request.args.get('projectId')
+    
     with db.cursor() as cur:
-        if user_role == 'LM':
-            # LM可以查看所有报价
-            cur.execute("""
-                SELECT q.*, p.projectName 
-                FROM quotes q 
-                JOIN projectname p ON q.projectId = p.id
-            """)
+        if project_id:
+            # 获取特定项目的任务报价
+            if user_role in ['LM', 'FT']:
+                # LM和FT可以查看所有报价
+                cur.execute("""
+                    SELECT * FROM task_quotes 
+                    WHERE projectId = %s
+                """, (project_id,))
+            else:
+                # BO只能查看自己项目的报价
+                cur.execute("""
+                    SELECT tq.* 
+                    FROM task_quotes tq
+                    JOIN projectname p ON tq.projectId = p.id
+                    WHERE tq.projectId = %s AND p.created_by = %s
+                """, (project_id, user_id))
         else:
-            # BO只能查看自己项目的报价
-            cur.execute("""
-                SELECT q.*, p.projectName 
-                FROM quotes q 
-                JOIN projectname p ON q.projectId = p.id
-                WHERE p.created_by = %s
-            """, (user_id,))
+            # 获取所有报价（使用原始quotes表，向后兼容）
+            if user_role == 'LM':
+                # LM可以查看所有报价
+                cur.execute("""
+                    SELECT q.*, p.projectName 
+                    FROM quotes q 
+                    JOIN projectname p ON q.projectId = p.id
+                """)
+            else:
+                # BO只能查看自己项目的报价
+                cur.execute("""
+                    SELECT q.*, p.projectName 
+                    FROM quotes q 
+                    JOIN projectname p ON q.projectId = p.id
+                    WHERE p.created_by = %s
+                """, (user_id,))
         
         quotes = cur.fetchall()
     return jsonify(quotes)
@@ -1346,35 +1367,71 @@ def create_quote():
     user_role = request.user.get('role')
     user_id = request.user.get('user_id')
     
-    # 只有LM可以创建报价
-    if user_role != 'LM':
-        return jsonify({"error": "Only LM can create quotes"}), 403
+    # 只有LM和FT可以创建报价
+    if user_role not in ['LM', 'FT']:
+        return jsonify({"error": "Only LM or FT can create quotes"}), 403
     
-    project_id = data.get('projectId')
-    lsp_name = data.get('lspName')
-    quote_amount = data.get('quoteAmount')
-    currency = data.get('currency', 'USD')
-    word_count = data.get('wordCount', 0)
-    quote_date = data.get('quoteDate', datetime.now().strftime('%Y-%m-%d'))
-    status = data.get('status', 'pending')
-    notes = data.get('notes', '')
-    
-    # 创建报价记录
-    with db.cursor() as cur:
-        sql = """
-        INSERT INTO quotes (
-            projectId, lspName, quoteAmount, currency, wordCount, 
-            quoteDate, status, notes, createTime, created_by
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        cur.execute(sql, (
-            project_id, lsp_name, quote_amount, currency, word_count,
-            quote_date, status, notes, datetime.now(), user_id
-        ))
-        db.commit()
-        quote_id = cur.lastrowid
-    
-    return jsonify({"id": quote_id, "message": "Quote created successfully"}), 201
+    # 检查请求体中是否包含任务类型 - 判断是创建普通报价还是任务报价
+    if 'task' in data:
+        # 创建任务报价 (task_quotes表)
+        project_id = data.get('projectId')
+        task = data.get('task')
+        assignee = data.get('assignee')
+        language = data.get('language')
+        quote_amount = data.get('quoteAmount')
+        currency = data.get('currency', 'USD')
+        word_count = data.get('wordCount', 0)
+        unit_price = data.get('unitPrice')
+        deadline = data.get('deadline')
+        notes = data.get('notes', '')
+        file_id = data.get('fileId')
+        status = data.get('status', 'pending')
+        
+        # 创建任务报价记录
+        with db.cursor() as cur:
+            sql = """
+            INSERT INTO task_quotes (
+                projectId, task, assignee, language, quoteAmount, 
+                currency, wordCount, unitPrice, deadline, notes, 
+                fileId, status, createTime, created_by
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cur.execute(sql, (
+                project_id, task, assignee, language, quote_amount,
+                currency, word_count, unit_price, deadline, notes,
+                file_id, status, datetime.now(), user_id
+            ))
+            db.commit()
+            quote_id = cur.lastrowid
+        
+        return jsonify({"id": quote_id, "message": "Task quote created successfully"}), 201
+    else:
+        # 创建普通报价 (quotes表) - 保持向后兼容
+        project_id = data.get('projectId')
+        lsp_name = data.get('lspName')
+        quote_amount = data.get('quoteAmount')
+        currency = data.get('currency', 'USD')
+        word_count = data.get('wordCount', 0)
+        quote_date = data.get('quoteDate', datetime.now().strftime('%Y-%m-%d'))
+        status = data.get('status', 'pending')
+        notes = data.get('notes', '')
+        
+        # 创建报价记录
+        with db.cursor() as cur:
+            sql = """
+            INSERT INTO quotes (
+                projectId, lspName, quoteAmount, currency, wordCount, 
+                quoteDate, status, notes, createTime, created_by
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cur.execute(sql, (
+                project_id, lsp_name, quote_amount, currency, word_count,
+                quote_date, status, notes, datetime.now(), user_id
+            ))
+            db.commit()
+            quote_id = cur.lastrowid
+        
+        return jsonify({"id": quote_id, "message": "Quote created successfully"}), 201
 
 @app.route('/api/quotes/extract', methods=['POST'])
 @token_required

@@ -8,13 +8,20 @@
       @ok="submitQuote"
       @cancel="closeModal"
       :ok-loading="submitting"
+      :ok-button-props="{ type: 'primary' }"
+      :cancel-button-props="{ type: 'default' }"
+      :mask-closable="false"
       unmount-on-close
       style="width: 700px;"
     >
-      <a-form :model="quoteForm" layout="vertical">
+      <a-form :model="quoteForm" layout="vertical" @submit.prevent="submitQuote">
         <!-- 项目任务选择 -->
         <a-form-item field="task" label="项目任务 / Project Task" required>
-          <a-select v-model="quoteForm.task" placeholder="选择任务 / Select task">
+          <a-select 
+            v-model="quoteForm.task" 
+            placeholder="选择任务 / Select task"
+            allow-clear
+          >
             <a-option value="translation">翻译任务 / Translation Task</a-option>
             <a-option value="lqa">LQA任务 / LQA Task</a-option>
             <a-option value="translationUpdate">翻译更新 / Translation Update</a-option>
@@ -29,11 +36,14 @@
         
         <!-- 语言选择 -->
         <a-form-item field="language" label="语言 / Language" required>
-          <a-select v-model="quoteForm.language" placeholder="选择语言 / Select language">
-            <a-option v-for="lang in availableLanguages" :key="lang.code" :value="lang.code">
+          <a-radio-group v-model="quoteForm.language" type="button" size="medium">
+            <a-radio v-for="lang in availableLanguages" :key="lang.code" :value="lang.code">
               {{ lang.name }}
-            </a-option>
-          </a-select>
+            </a-radio>
+          </a-radio-group>
+          <div class="language-hint" v-if="availableLanguages.length === 0">
+            (未设置项目语言 / No project languages set)
+          </div>
         </a-form-item>
         
         <!-- 报价金额和货币 -->
@@ -66,7 +76,11 @@
         
         <!-- 截止日期 -->
         <a-form-item field="deadline" label="截止日期 / Deadline">
-          <a-date-picker v-model="quoteForm.deadline" style="width: 100%;" />
+          <a-date-picker 
+            v-model="quoteForm.deadline" 
+            style="width: 100%;"
+            format="YYYY-MM-DD"
+          />
         </a-form-item>
         
         <!-- 上传报价文件 -->
@@ -80,7 +94,7 @@
             accept=".xls,.xlsx,.csv,.pdf,.doc,.docx"
           >
             <template #upload-button>
-              <a-button>
+              <a-button type="primary">
                 上传报价文件 / Upload Quote File
               </a-button>
             </template>
@@ -146,7 +160,7 @@ const quoteForm = reactive({
   wordCount: 0,
   unitPrice: 0,
   deadline: null,
-  notes: ''
+  notes: '',
 });
 
 // 计算属性
@@ -184,8 +198,8 @@ const uploadHeaders = computed(() => {
 
 // 打开模态框
 const openQuoteModal = (project) => {
-  if (props.userRole !== 'FT') {
-    Message.error('只有财务团队可以录入报价 / Only Financial Team can enter quotes');
+  if (props.userRole !== 'FT' && props.userRole !== 'LM') {
+    Message.error('只有财务团队或本地化经理可以录入报价 / Only Financial Team or LM can enter quotes');
     return;
   }
   
@@ -349,6 +363,16 @@ const submitQuote = async () => {
       return;
     }
     
+    // 检查当前项目是否有效
+    if (!currentProject.value || !currentProject.value.id) {
+      Message.error('项目信息无效，请重试 / Invalid project information, please try again');
+      submitting.value = false;
+      return;
+    }
+    
+    // 处理日期格式
+    const formattedDeadline = quoteForm.deadline ? formatDate(quoteForm.deadline) : null;
+    
     // 准备要提交的数据
     const quoteData = {
       projectId: currentProject.value.id,
@@ -358,34 +382,96 @@ const submitQuote = async () => {
       quoteAmount: quoteForm.quoteAmount,
       currency: quoteForm.currency,
       wordCount: quoteForm.wordCount || 0,
-      unitPrice: quoteForm.unitPrice || 0,
-      deadline: quoteForm.deadline ? formatDate(quoteForm.deadline) : null,
+      unitPrice: quoteForm.unitPrice !== undefined ? quoteForm.unitPrice : 0,
+      deadline: formattedDeadline,
       notes: quoteForm.notes,
       fileId: uploadedFileId.value
     };
     
-    // 发送请求
-    const response = await axios.post(
-      'http://localhost:5000/api/quotes',
-      quoteData,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+    // 完整的请求URL
+    const apiUrl = 'http://localhost:5000/api/quotes';
+    console.log(`准备向 ${apiUrl} 提交报价数据:`, quoteData);
+    
+    // 设置请求配置
+    const config = {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 15000 // 15秒超时，防止长时间等待
+    };
+    
+    console.log('请求配置:', config);
+    
+    try {
+      // 发送请求
+      const response = await axios.post(apiUrl, quoteData, config);
+      
+      console.log('报价提交响应:', response);
+      console.log('响应状态码:', response.status);
+      console.log('响应数据:', response.data);
+      
+      // 检查状态码 - 后端返回201表示创建成功
+      if (response.status === 201 || response.status === 200) {
+        Message.success('报价提交成功 / Quote submitted successfully');
+        console.log('报价创建成功，ID:', response.data.id);
+        emit('uploaded');
+        closeModal();
+      } else {
+        console.error('报价提交返回了非成功状态码:', response.status);
+        console.error('响应数据:', response.data);
+        throw new Error(`提交返回了非成功状态码: ${response.status} / Submission returned a non-success status code: ${response.status}`);
+      }
+    } catch (axiosError) {
+      console.error('Axios错误:', axiosError);
+      
+      // 检查是否是服务器内部错误(500)
+      if (axiosError.response && axiosError.response.status === 500) {
+        console.error('服务器内部错误，可能是数据库问题');
+        console.error('错误详情:', axiosError.response.data);
+        
+        // 检查是否是MySQL错误
+        const errorMsg = axiosError.response.data.error || '';
+        if (errorMsg.includes('MySQL') || errorMsg.includes('database') || errorMsg.includes('sql')) {
+          throw new Error(`数据库错误: ${errorMsg} / Database error: ${errorMsg}`);
+        } else {
+          throw new Error(`服务器内部错误: ${errorMsg} / Server internal error: ${errorMsg}`);
         }
       }
-    );
-    
-    if (response.status === 200) {
-      Message.success('报价提交成功 / Quote submitted successfully');
-      emit('uploaded');
-      closeModal();
-    } else {
-      throw new Error('提交失败 / Submission failed');
+      
+      throw axiosError; // 重新抛出，让下面的错误处理逻辑处理
     }
   } catch (error) {
     console.error('Error submitting quote:', error);
-    Message.error(`提交失败: ${error.message || '未知错误'} / Submission failed: ${error.message || 'Unknown error'}`);
+    
+    let errorMessage = '未知错误 / Unknown error';
+    
+    if (error.response) {
+      // 服务器响应了，但返回错误状态码
+      console.error('服务器错误响应:', error.response.data);
+      console.error('状态码:', error.response.status);
+      
+      // 针对不同状态码显示不同错误信息
+      if (error.response.status === 401) {
+        errorMessage = '认证失败，请重新登录 / Authentication failed, please login again';
+      } else if (error.response.status === 403) {
+        errorMessage = '权限不足，无法提交报价 / Insufficient permissions to submit quote';
+      } else if (error.response.status === 500) {
+        errorMessage = '服务器内部错误 / Server internal error';
+      } else {
+        errorMessage = `服务器错误: ${error.response.status} - ${error.response.data.error || error.message}`;
+      }
+    } else if (error.request) {
+      // 请求已发送，但没有收到响应
+      console.error('没有收到服务器响应:', error.request);
+      errorMessage = '服务器没有响应，请检查网络连接和后端服务状态 / No response from server, please check network connection and backend service status';
+    } else {
+      // 请求配置错误
+      console.error('请求错误:', error.message);
+      errorMessage = `请求错误: ${error.message} / Request error: ${error.message}`;
+    }
+    
+    Message.error(`提交失败: ${errorMessage} / Submission failed: ${errorMessage}`);
   } finally {
     submitting.value = false;
   }
@@ -395,14 +481,27 @@ const submitQuote = async () => {
 const formatDate = (date) => {
   if (!date) return null;
   
-  if (date instanceof Date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  }
-  
-  // 如果是字符串，尝试转换
   try {
-    const d = new Date(date);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    let dateObj;
+    
+    if (date instanceof Date) {
+      dateObj = date;
+    } else {
+      // 如果是字符串，尝试转换
+      dateObj = new Date(date);
+    }
+    
+    // 检查日期是否有效
+    if (isNaN(dateObj.getTime())) {
+      console.error('无效的日期:', date);
+      return null;
+    }
+    
+    // 格式化为YYYY-MM-DD
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch (e) {
     console.error('Error formatting date:', e);
     return null;
@@ -427,5 +526,11 @@ defineExpose({
 
 :deep(.arco-upload-list-item) {
   margin-top: 8px;
+}
+
+.language-hint {
+  margin-top: 8px;
+  font-size: 0.8em;
+  color: var(--color-text-3);
 }
 </style> 
