@@ -566,9 +566,6 @@
         
         <div class="drawer-footer" style="margin-top: 24px; text-align: right;">
           <a-space>
-            <a-button @click="closeDrawer">
-              关闭 / Close
-            </a-button>
             <a-button type="primary" @click="saveProject" v-if="userRole === 'LM' && isEditing">
               保存 / Save
             </a-button>

@@ -85,6 +85,28 @@
           <span>{{ getTaskText(record.taskLQA) }}</span>
         </template>
         
+        <!-- 新增翻译更新任务状态列 -->
+        <template #taskTranslationUpdate="{ record }">
+          <a-progress
+            :percent="getTaskProgress(record.taskTranslationUpdate)"
+            :status="getTaskStatus(record.taskTranslationUpdate)"
+            :show-text="false"
+            size="small"
+          />
+          <span>{{ getTaskText(record.taskTranslationUpdate) }}</span>
+        </template>
+        
+        <!-- 新增LQA报告定稿任务状态列 -->
+        <template #taskLQAReportFinalization="{ record }">
+          <a-progress
+            :percent="getTaskProgress(record.taskLQAReportFinalization)"
+            :status="getTaskStatus(record.taskLQAReportFinalization)"
+            :show-text="false"
+            size="small"
+          />
+          <span>{{ getTaskText(record.taskLQAReportFinalization) }}</span>
+        </template>
+        
         <!-- 操作列 -->
         <template #operations="{ record }">
           <a-space>
@@ -93,6 +115,9 @@
             </a-button>
             <a-button type="text" size="small" @click="onUploadQuote(record)">
               报价录入 / Quote
+            </a-button>
+            <a-button type="text" size="small" @click="onExportQuote(record)">
+              导出报价 / Export
             </a-button>
           </a-space>
         </template>
@@ -150,7 +175,7 @@
                   <a-progress
                     :percent="getTaskProgress(currentProject.taskTranslation)"
                     :status="getTaskStatus(currentProject.taskTranslation)"
-                    :show-text="true"
+                    :show-text="false"
                     size="small"
                   />
                 </div>
@@ -161,15 +186,9 @@
                   <div><strong>备注 / Notes:</strong> {{ currentProject.translationNotes || '无 / None' }}</div>
                 </div>
                 <!-- 报价信息 -->
-                <div v-if="taskQuotes.translation" class="quote-info">
+                <div v-if="taskQuotes.translation.quotes.length > 0" class="quote-info">
                   <div class="quote-header">报价信息 / Quote Information</div>
-                  <div><strong>语言 / Language:</strong> {{ getLanguageName(taskQuotes.translation.language) }}</div>
-                  <div><strong>负责人 / Vendor:</strong> {{ taskQuotes.translation.assignee }}</div>
-                  <div><strong>金额 / Amount:</strong> {{ taskQuotes.translation.quoteAmount }} {{ taskQuotes.translation.currency }}</div>
-                  <div><strong>字数 / Word Count:</strong> {{ taskQuotes.translation.wordCount }}</div>
-                  <div><strong>单价 / Unit Price:</strong> {{ taskQuotes.translation.unitPrice }}</div>
-                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(taskQuotes.translation.deadline) }}</div>
-                  <div><strong>备注 / Notes:</strong> {{ taskQuotes.translation.notes || '无 / None' }}</div>
+                  <TaskQuoteDisplay :quotes="taskQuotes.translation.quotes" />
                 </div>
               </div>
             </a-descriptions-item>
@@ -181,7 +200,7 @@
                   <a-progress
                     :percent="getTaskProgress(currentProject.taskLQA)"
                     :status="getTaskStatus(currentProject.taskLQA)"
-                    :show-text="true"
+                    :show-text="false"
                     size="small"
                   />
                 </div>
@@ -192,15 +211,9 @@
                   <div><strong>备注 / Notes:</strong> {{ currentProject.lqaNotes || '无 / None' }}</div>
                 </div>
                 <!-- 报价信息 -->
-                <div v-if="taskQuotes.lqa" class="quote-info">
+                <div v-if="taskQuotes.lqa.quotes.length > 0" class="quote-info">
                   <div class="quote-header">报价信息 / Quote Information</div>
-                  <div><strong>语言 / Language:</strong> {{ getLanguageName(taskQuotes.lqa.language) }}</div>
-                  <div><strong>负责人 / Vendor:</strong> {{ taskQuotes.lqa.assignee }}</div>
-                  <div><strong>金额 / Amount:</strong> {{ taskQuotes.lqa.quoteAmount }} {{ taskQuotes.lqa.currency }}</div>
-                  <div><strong>字数 / Word Count:</strong> {{ taskQuotes.lqa.wordCount }}</div>
-                  <div><strong>单价 / Unit Price:</strong> {{ taskQuotes.lqa.unitPrice }}</div>
-                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(taskQuotes.lqa.deadline) }}</div>
-                  <div><strong>备注 / Notes:</strong> {{ taskQuotes.lqa.notes || '无 / None' }}</div>
+                  <TaskQuoteDisplay :quotes="taskQuotes.lqa.quotes" />
                 </div>
               </div>
             </a-descriptions-item>
@@ -212,7 +225,7 @@
                   <a-progress
                     :percent="getTaskProgress(currentProject.taskTranslationUpdate)"
                     :status="getTaskStatus(currentProject.taskTranslationUpdate)"
-                    :show-text="true"
+                    :show-text="false"
                     size="small"
                   />
                 </div>
@@ -223,15 +236,9 @@
                   <div><strong>备注 / Notes:</strong> {{ currentProject.translationUpdateNotes || '无 / None' }}</div>
                 </div>
                 <!-- 报价信息 -->
-                <div v-if="taskQuotes.translationUpdate" class="quote-info">
+                <div v-if="taskQuotes.translationUpdate.quotes.length > 0" class="quote-info">
                   <div class="quote-header">报价信息 / Quote Information</div>
-                  <div><strong>语言 / Language:</strong> {{ getLanguageName(taskQuotes.translationUpdate.language) }}</div>
-                  <div><strong>负责人 / Vendor:</strong> {{ taskQuotes.translationUpdate.assignee }}</div>
-                  <div><strong>金额 / Amount:</strong> {{ taskQuotes.translationUpdate.quoteAmount }} {{ taskQuotes.translationUpdate.currency }}</div>
-                  <div><strong>字数 / Word Count:</strong> {{ taskQuotes.translationUpdate.wordCount }}</div>
-                  <div><strong>单价 / Unit Price:</strong> {{ taskQuotes.translationUpdate.unitPrice }}</div>
-                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(taskQuotes.translationUpdate.deadline) }}</div>
-                  <div><strong>备注 / Notes:</strong> {{ taskQuotes.translationUpdate.notes || '无 / None' }}</div>
+                  <TaskQuoteDisplay :quotes="taskQuotes.translationUpdate.quotes" />
                 </div>
               </div>
             </a-descriptions-item>
@@ -243,7 +250,7 @@
                   <a-progress
                     :percent="getTaskProgress(currentProject.taskLQAReportFinalization)"
                     :status="getTaskStatus(currentProject.taskLQAReportFinalization)"
-                    :show-text="true"
+                    :show-text="false"
                     size="small"
                   />
                 </div>
@@ -254,22 +261,15 @@
                   <div><strong>备注 / Notes:</strong> {{ currentProject.lqaReportFinalizationNotes || '无 / None' }}</div>
                 </div>
                 <!-- 报价信息 -->
-                <div v-if="taskQuotes.lqaReportFinalization" class="quote-info">
+                <div v-if="taskQuotes.lqaReportFinalization.quotes.length > 0" class="quote-info">
                   <div class="quote-header">报价信息 / Quote Information</div>
-                  <div><strong>语言 / Language:</strong> {{ getLanguageName(taskQuotes.lqaReportFinalization.language) }}</div>
-                  <div><strong>负责人 / Vendor:</strong> {{ taskQuotes.lqaReportFinalization.assignee }}</div>
-                  <div><strong>金额 / Amount:</strong> {{ taskQuotes.lqaReportFinalization.quoteAmount }} {{ taskQuotes.lqaReportFinalization.currency }}</div>
-                  <div><strong>字数 / Word Count:</strong> {{ taskQuotes.lqaReportFinalization.wordCount }}</div>
-                  <div><strong>单价 / Unit Price:</strong> {{ taskQuotes.lqaReportFinalization.unitPrice }}</div>
-                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(taskQuotes.lqaReportFinalization.deadline) }}</div>
-                  <div><strong>备注 / Notes:</strong> {{ taskQuotes.lqaReportFinalization.notes || '无 / None' }}</div>
+                  <TaskQuoteDisplay :quotes="taskQuotes.lqaReportFinalization.quotes" />
                 </div>
               </div>
             </a-descriptions-item>
           </a-descriptions>
           
           <div class="drawer-footer">
-            <a-button @click="projectDetailVisible = false">关闭 / Close</a-button>
           </div>
         </div>
       </a-drawer>
@@ -304,6 +304,8 @@ import { Message } from '@arco-design/web-vue';
 import axios from 'axios';
 import { IconFile } from '@arco-design/web-vue/es/icon';
 import QuoteUploader from './finance/QuoteUploader.vue';
+import TaskQuoteDisplay from './finance/TaskQuoteDisplay.vue';
+import * as XLSX from 'xlsx';  // 静态导入xlsx库
 import { 
   getStatusColor, 
   getStatusText, 
@@ -379,6 +381,20 @@ const columns = [
     resizable: true,
   },
   {
+    title: '翻译更新 / Translation Update',
+    dataIndex: 'taskTranslationUpdate',
+    key: 'taskTranslationUpdate',
+    slotName: 'taskTranslationUpdate',
+    resizable: true,
+  },
+  {
+    title: 'LQA报告定稿 / LQA Report Finalization',
+    dataIndex: 'taskLQAReportFinalization',
+    key: 'taskLQAReportFinalization',
+    slotName: 'taskLQAReportFinalization',
+    resizable: true,
+  },
+  {
     title: '操作 / Operations',
     slotName: 'operations',
     width: 200,
@@ -396,10 +412,18 @@ const currentProject = ref(null);
 const quoteUploaderRef = ref(null);
 const drawerWidth = ref(800); // 添加抽屉宽度状态
 const taskQuotes = ref({
-  translation: null,
-  lqa: null,
-  translationUpdate: null,
-  lqaReportFinalization: null
+  translation: {
+    quotes: []
+  },
+  lqa: {
+    quotes: []
+  },
+  translationUpdate: {
+    quotes: []
+  },
+  lqaReportFinalization: {
+    quotes: []
+  }
 });
 
 // 拖拽相关状态
@@ -578,10 +602,18 @@ const onViewProject = async (project) => {
   
   // 清空之前的报价数据
   taskQuotes.value = {
-    translation: null,
-    lqa: null,
-    translationUpdate: null,
-    lqaReportFinalization: null
+    translation: {
+      quotes: []
+    },
+    lqa: {
+      quotes: []
+    },
+    translationUpdate: {
+      quotes: []
+    },
+    lqaReportFinalization: {
+      quotes: []
+    }
   };
   
   // 异步加载项目报价数据
@@ -610,27 +642,51 @@ const fetchProjectQuotes = async (projectId) => {
     const response = await axios.get(`http://localhost:5000/api/quotes?projectId=${projectId}`, { headers });
     
     if (Array.isArray(response.data) && response.data.length > 0) {
-      // 按任务类型组织报价数据
-      const quotes = response.data;
-      
-      // 清空现有数据
+      // 初始化任务报价结构
       taskQuotes.value = {
-        translation: null,
-        lqa: null,
-        translationUpdate: null,
-        lqaReportFinalization: null
+        translation: {
+          quotes: []
+        },
+        lqa: {
+          quotes: []
+        },
+        translationUpdate: {
+          quotes: []
+        },
+        lqaReportFinalization: {
+          quotes: []
+        }
       };
       
-      // 填充报价数据
+      // 按任务类型和语言组织报价数据
+      const quotes = response.data;
+      
+      // 分组处理报价数据
       quotes.forEach(quote => {
         if (quote.task && taskQuotes.value.hasOwnProperty(quote.task)) {
-          taskQuotes.value[quote.task] = quote;
+          // 将报价添加到相应任务的quotes数组中
+          taskQuotes.value[quote.task].quotes.push(quote);
         }
       });
       
       console.log('获取到项目报价数据:', taskQuotes.value);
     } else {
       console.log('未找到项目报价数据');
+      // 确保有空的数据结构
+      taskQuotes.value = {
+        translation: {
+          quotes: []
+        },
+        lqa: {
+          quotes: []
+        },
+        translationUpdate: {
+          quotes: []
+        },
+        lqaReportFinalization: {
+          quotes: []
+        }
+      };
     }
   } catch (error) {
     console.error('获取项目报价数据失败:', error);
@@ -757,6 +813,172 @@ const onUploadQuote = (project) => {
   }
 };
 
+// 导出项目报价信息为Excel
+const onExportQuote = async (project) => {
+  // 先加载完整的项目数据和报价信息
+  try {
+    Message.loading({
+      id: 'exportLoading',
+      content: '正在准备导出数据... / Preparing export data...',
+      duration: 500
+    });
+    
+    // 获取项目详情和报价信息
+    await fetchProjectQuotes(project.id);
+    
+    // 处理后端导出API
+    const token = localStorage.getItem('token');
+    if (!token) {
+      Message.error('未登录或会话已过期 / Not logged in or session expired');
+      Message.clear('exportLoading');
+      return;
+    }
+    
+    try {
+      // 尝试使用后端API导出
+      const response = await axios({
+        method: 'GET',
+        url: `http://localhost:5000/api/quotes/export?projectId=${project.id}`,
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // 创建下载链接
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Project_Quote_${project.projectName.replace(/[^\w\s]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      Message.success('报价信息导出成功 / Quote information exported successfully');
+    } catch (apiError) {
+      console.log('后端API导出失败，使用前端实现:', apiError);
+      
+      // 如果后端API不可用，使用前端实现导出功能
+      await exportQuoteToExcelFrontend(project);
+    }
+  } catch (error) {
+    console.error('导出报价信息失败:', error);
+    Message.error(`导出失败: ${error.message || '未知错误'} / Export failed: ${error.message || 'Unknown error'}`);
+  } finally {
+    Message.clear('exportLoading');
+  }
+};
+
+// 使用前端方法导出Excel (当后端API不可用时的备选方案)
+const exportQuoteToExcelFrontend = async (project) => {
+  // 准备数据 - 每种语言一个sheet
+  const languages = new Set();
+  
+  // 收集所有语言
+  Object.values(taskQuotes.value).forEach(task => {
+    task.quotes.forEach(quote => {
+      if (quote.language) {
+        languages.add(quote.language);
+      }
+    });
+  });
+  
+  // 如果找不到任何语言，至少添加一个默认sheet
+  if (languages.size === 0) {
+    languages.add('all');
+  }
+  
+  const workbook = XLSX.utils.book_new();
+  
+  // 为每种语言创建一个工作表
+  Array.from(languages).forEach(language => {
+    // 准备该语言的数据
+    const sheetData = [];
+    
+    // 添加项目基本信息作为头部
+    sheetData.push([`项目名称 / Project Name: ${project.projectName}`]);
+    sheetData.push([`项目状态 / Project Status: ${getStatusText(project.projectStatus)}`]);
+    sheetData.push([`请求名称 / Request Name: ${project.requestName || 'N/A'}`]);
+    sheetData.push([`项目经理 / Project Manager: ${project.projectManager || 'N/A'}`]);
+    sheetData.push([`创建时间 / Create Time: ${formatDate(project.createTime)}`]);
+    sheetData.push([`语言 / Language: ${getLanguageName(language)}`]);
+    sheetData.push([`字数 / Word Count: ${project.wordCount || 0}`]);
+    sheetData.push([`预期交付日期 / Expected Delivery Date: ${formatDate(project.expectedDeliveryDate)}`]);
+    sheetData.push([]);  // 空行
+    
+    // 添加报价表头
+    sheetData.push([
+      '任务类型 / Task Type',
+      '任务负责人 / Assignee',
+      '语言 / Language',
+      '报价金额 / Quote Amount',
+      '货币 / Currency',
+      '字数 / Word Count',
+      '单价 / Unit Price',
+      '截止日期 / Deadline',
+      '状态 / Status',
+      '备注 / Notes'
+    ]);
+    
+    // 筛选该语言的报价数据
+    const filteredQuotes = [];
+    Object.keys(taskQuotes.value).forEach(taskType => {
+      taskQuotes.value[taskType].quotes.forEach(quote => {
+        if (quote.language === language || language === 'all') {
+          filteredQuotes.push({
+            taskType,
+            ...quote
+          });
+        }
+      });
+    });
+    
+    // 添加报价数据行
+    filteredQuotes.forEach(quote => {
+      const taskTypeName = {
+        'translation': '翻译任务 / Translation',
+        'lqa': 'LQA任务 / LQA',
+        'translationUpdate': '翻译更新 / Translation Update',
+        'lqaReportFinalization': 'LQA报告定稿 / LQA Report Finalization'
+      }[quote.taskType] || quote.taskType;
+      
+      sheetData.push([
+        taskTypeName,
+        quote.assignee || 'N/A',
+        getLanguageName(quote.language) || 'N/A',
+        quote.quoteAmount || 0,
+        quote.currency || 'USD',
+        quote.wordCount || 0,
+        quote.unitPrice || 0,
+        formatDate(quote.deadline) || 'N/A',
+        quote.status || 'pending',
+        quote.notes || ''
+      ]);
+    });
+    
+    // 如果没有报价数据，添加一行提示
+    if (filteredQuotes.length === 0) {
+      sheetData.push(['暂无报价数据 / No quote data available']);
+    }
+    
+    // 创建工作表
+    const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+    
+    // 设置工作表名称
+    const sheetName = language === 'all' ? 
+      'All_Languages' : 
+      `${language}`;
+    
+    // 添加到工作簿
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  });
+  
+  // 导出Excel文件
+  XLSX.writeFile(workbook, `Project_Quote_${project.projectName.replace(/[^\w\s]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  
+  Message.success('报价信息导出成功 / Quote information exported successfully');
+};
+
 // 处理报价上传完成
 const handleQuoteUploaded = async () => {
   Message.success('报价已上传 / Quote has been uploaded');
@@ -876,7 +1098,7 @@ h2 {
 .quote-header {
   font-weight: bold;
   font-size: 14px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   color: var(--color-text-1);
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 4px;

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, after_this_request
+from flask import Flask, request, jsonify, send_from_directory, after_this_request, send_file, make_response
 from flask_cors import CORS
 import pymysql
 import os
@@ -15,6 +15,11 @@ import logging
 import json
 import traceback
 import time
+from werkzeug.utils import secure_filename
+import io
+import pandas as pd
+import openpyxl
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 
 # 配置详细的日志记录
 log_dir = 'logs'
@@ -2076,6 +2081,280 @@ def get_project_task_assignments(project_id):
     except Exception as e:
         print(f"获取项目任务分配时出错: {e}")
         return jsonify({"error": f"Failed to get project task assignments: {str(e)}"}), 500
+
+# 添加导出报价信息的路由
+@app.route('/api/quotes/export', methods=['GET'])
+@token_required
+def export_quotes():
+    try:
+        # 获取当前用户，确保是FT或LM角色
+        # 从token_required装饰器中获取用户信息，而不是使用get_jwt_identity
+        user_role = request.user.get('role')
+        
+        if user_role not in ['FT', 'LM', 'PM']:
+            return jsonify({'error': '权限不足，只有财务团队、本地化经理或项目经理可以导出报价 / Permission denied'}), 403
+        
+        # 获取项目ID
+        project_id = request.args.get('projectId')
+        if not project_id:
+            return jsonify({'error': '缺少项目ID / Missing project ID'}), 400
+        
+        # 连接数据库
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # 获取项目信息
+        cursor.execute('''
+            SELECT * FROM projectname WHERE id = %s
+        ''', (project_id,))
+        project = cursor.fetchone()
+        
+        if not project:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': '项目不存在 / Project not found'}), 404
+        
+        # 获取项目任务分配情况
+        cursor.execute('''
+            SELECT * FROM projectname_task_assignments 
+            WHERE projectId = %s
+        ''', (project_id,))
+        task_assignments = cursor.fetchall()
+        
+        # 获取项目报价信息
+        cursor.execute('''
+            SELECT tq.*, f.originalName as fileName 
+            FROM task_quotes tq
+            LEFT JOIN files f ON tq.fileId = f.id
+            WHERE tq.projectId = %s
+        ''', (project_id,))
+        quotes = cursor.fetchall()
+        
+        # 创建一个Excel文件
+        output = io.BytesIO()
+        
+        # 创建一个工作簿和一个总览工作表
+        workbook = openpyxl.Workbook()
+        overview_sheet = workbook.active
+        overview_sheet.title = "Project_Overview"
+        
+        # 设置表头样式
+        header_fill = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
+        header_font = Font(bold=True)
+        header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        thin_border = Border(
+            left=Side(style='thin'), 
+            right=Side(style='thin'), 
+            top=Side(style='thin'), 
+            bottom=Side(style='thin')
+        )
+        
+        # 添加项目基本信息到总览表
+        overview_sheet.append(["项目信息 / Project Information", ""])
+        overview_sheet.append(["项目名称 / Project Name", project['projectName']])
+        overview_sheet.append(["项目状态 / Project Status", project['projectStatus']])
+        overview_sheet.append(["请求名称 / Request Name", project['requestName']])
+        overview_sheet.append(["项目经理 / Project Manager", project['projectManager']])
+        overview_sheet.append(["创建时间 / Create Time", project['createTime'].strftime('%Y-%m-%d %H:%M:%S') if project['createTime'] else 'N/A'])
+        overview_sheet.append(["源语言 / Source Language", project['sourceLanguage']])
+        overview_sheet.append(["目标语言 / Target Languages", project['targetLanguages']])
+        overview_sheet.append(["字数 / Word Count", project['wordCount']])
+        
+        # 添加空行
+        overview_sheet.append([])
+        
+        # 添加所有报价信息表头
+        overview_sheet.append([
+            "任务类型 / Task Type",
+            "任务负责人 / Assignee",
+            "语言 / Language",
+            "报价金额 / Quote Amount",
+            "货币 / Currency",
+            "字数 / Word Count",
+            "单价 / Unit Price",
+            "截止日期 / Deadline",
+            "状态 / Status",
+            "备注 / Notes",
+            "文件名 / File Name"
+        ])
+        
+        # 设置表头样式
+        for col in range(1, 12):
+            cell = overview_sheet.cell(row=11, column=col)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+            cell.border = thin_border
+        
+        # 添加所有报价信息数据
+        row_num = 12
+        for quote in quotes:
+            task_type_map = {
+                'translation': '翻译任务 / Translation',
+                'lqa': 'LQA任务 / LQA',
+                'translationUpdate': '翻译更新 / Translation Update',
+                'lqaReportFinalization': 'LQA报告定稿 / LQA Report Finalization'
+            }
+            task_type = task_type_map.get(quote['task'], quote['task'])
+            
+            overview_sheet.append([
+                task_type,
+                quote['assignee'],
+                quote['language'],
+                quote['quoteAmount'],
+                quote['currency'],
+                quote['wordCount'],
+                quote['unitPrice'],
+                quote['deadline'].strftime('%Y-%m-%d') if quote['deadline'] else 'N/A',
+                quote['status'],
+                quote['notes'],
+                quote['fileName'] if quote['fileName'] else 'N/A'
+            ])
+            
+            # 设置数据单元格样式
+            for col in range(1, 12):
+                cell = overview_sheet.cell(row=row_num, column=col)
+                cell.border = thin_border
+                
+                # 对报价金额和单价进行数字格式化
+                if col == 4:  # 报价金额
+                    cell.number_format = '#,##0.00'
+                elif col == 7:  # 单价
+                    cell.number_format = '#,##0.0000'
+            
+            row_num += 1
+        
+        # 调整列宽
+        for col in overview_sheet.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            overview_sheet.column_dimensions[column].width = adjusted_width
+        
+        # 收集所有语言代码
+        languages = set()
+        for quote in quotes:
+            languages.add(quote['language'])
+        
+        # 为每种语言创建一个工作表
+        for language in languages:
+            # 创建语言特定的工作表
+            lang_sheet = workbook.create_sheet(title=f"{language}")
+            
+            # 添加项目基本信息
+            lang_sheet.append(["项目信息 / Project Information", ""])
+            lang_sheet.append(["项目名称 / Project Name", project['projectName']])
+            lang_sheet.append(["项目状态 / Project Status", project['projectStatus']])
+            lang_sheet.append(["语言 / Language", language])
+            lang_sheet.append(["字数 / Word Count", project['wordCount']])
+            
+            # 添加空行
+            lang_sheet.append([])
+            
+            # 添加该语言的报价信息表头
+            lang_sheet.append([
+                "任务类型 / Task Type",
+                "任务负责人 / Assignee",
+                "报价金额 / Quote Amount",
+                "货币 / Currency",
+                "字数 / Word Count",
+                "单价 / Unit Price",
+                "截止日期 / Deadline",
+                "状态 / Status",
+                "备注 / Notes",
+                "文件名 / File Name"
+            ])
+            
+            # 设置表头样式
+            for col in range(1, 11):
+                cell = lang_sheet.cell(row=7, column=col)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_alignment
+                cell.border = thin_border
+            
+            # 筛选该语言的报价数据
+            language_quotes = [q for q in quotes if q['language'] == language]
+            
+            # 添加该语言的报价信息
+            row_num = 8
+            for quote in language_quotes:
+                task_type_map = {
+                    'translation': '翻译任务 / Translation',
+                    'lqa': 'LQA任务 / LQA',
+                    'translationUpdate': '翻译更新 / Translation Update',
+                    'lqaReportFinalization': 'LQA报告定稿 / LQA Report Finalization'
+                }
+                task_type = task_type_map.get(quote['task'], quote['task'])
+                
+                lang_sheet.append([
+                    task_type,
+                    quote['assignee'],
+                    quote['quoteAmount'],
+                    quote['currency'],
+                    quote['wordCount'],
+                    quote['unitPrice'],
+                    quote['deadline'].strftime('%Y-%m-%d') if quote['deadline'] else 'N/A',
+                    quote['status'],
+                    quote['notes'],
+                    quote['fileName'] if quote['fileName'] else 'N/A'
+                ])
+                
+                # 设置数据单元格样式
+                for col in range(1, 11):
+                    cell = lang_sheet.cell(row=row_num, column=col)
+                    cell.border = thin_border
+                    
+                    # 对报价金额和单价进行数字格式化
+                    if col == 3:  # 报价金额
+                        cell.number_format = '#,##0.00'
+                    elif col == 6:  # 单价
+                        cell.number_format = '#,##0.0000'
+                
+                row_num += 1
+            
+            # 调整列宽
+            for col in lang_sheet.columns:
+                max_length = 0
+                column = col[0].column_letter
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                lang_sheet.column_dimensions[column].width = adjusted_width
+        
+        # 保存工作簿到输出流
+        workbook.save(output)
+        output.seek(0)
+        
+        # 释放数据库连接
+        cursor.close()
+        conn.close()
+        
+        # 生成文件名
+        safe_project_name = secure_filename(project['projectName'])
+        filename = f"Project_Quote_{safe_project_name}_{project_id}.xlsx"
+        
+        # 返回Excel文件
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            download_name=filename,
+            as_attachment=True
+        )
+    
+    except Exception as e:
+        print(f"Error exporting quotes: {str(e)}")
+        return jsonify({'error': f'导出报价信息失败: {str(e)} / Export failed: {str(e)}'}), 500
 
 if __name__ == '__main__':
     logger.info("==========================================")
