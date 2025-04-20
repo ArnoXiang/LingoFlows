@@ -2,7 +2,6 @@
 
 
 ## An integrated platform that combines AI chat capabilities, translation services, and project management functionalities, specifically designed for localization workflows.
-
 Yizhuo Xiang
 
 
