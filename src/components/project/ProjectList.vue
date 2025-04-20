@@ -621,6 +621,8 @@ const onUploadFiles = (project) => {
 <style scoped>
 .project-list-container {
   width: 100%;
+  /* 移除可能导致滚动条的固定高度 */
+  /* 确保内容适应父容器 */
 }
 
 .action-bar {

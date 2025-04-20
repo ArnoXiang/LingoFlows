@@ -727,9 +727,12 @@ export default defineComponent({
   height: 100vh;
   background: var(--color-fill-2);
   border: 1px solid var(--color-border);
+  /* 确保整个布局容器只有一个滚动条 */
+  overflow: hidden;
 }
 .layout-demo :deep(.arco-layout-sider) {
   height: 100%;
+  overflow-y: hidden;
 }
 .layout-demo :deep(.arco-layout-header)  {
   height: 64px;
@@ -758,7 +761,8 @@ export default defineComponent({
   flex-direction: column;
   height: calc(100% - 112px);
   color: black;
-  overflow-y: auto;
+  /* 修改这里，禁用内容区域的滚动条 */
+  overflow-y: hidden;
 }
 .layout-demo :deep(.arco-layout-footer) {
   display: flex;

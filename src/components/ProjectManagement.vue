@@ -351,6 +351,8 @@ const handleFilesRefreshed = () => {
   height: 100%;
   padding: 20px;
   background-color: var(--color-bg-2);
+  /* 添加溢出滚动，这是唯一需要滚动的容器 */
+  overflow-y: auto;
 }
 
 /* 移除其他样式，因为都已经移动到各自的组件中 */
