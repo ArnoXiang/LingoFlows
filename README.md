@@ -1,5 +1,5 @@
 # LingoFlows - Collaborative Localization Management Platform
-<img>imgs\LIngoFlows_logo.jpg
+![LingoFlows](imgs/LIngoFlows_logo.jpg)
 
 ## An integrated platform that combines AI chat capabilities, translation services, and project management functionalities, specifically designed for localization workflows.
 Yizhuo Xiang
