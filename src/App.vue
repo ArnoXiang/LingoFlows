@@ -8,22 +8,33 @@
       :collapsed="collapsed"
       @collapse="onCollapse"
     >
-      <div class="logo" />
+      <div class="logo-placeholder" @click="goToHome">
+        <!-- 展开状态下的logo显示 -->
+        <div class="logo-content" v-if="!collapsed">
+          <div class="logo-icon">
+            <IconLanguage />
+          </div>
+          <div class="logo-text">
+            <span class="logo-name">Lingo<span class="logo-highlight">Flows</span></span>
+            <span class="logo-tagline">Localization Platform</span>
+          </div>
+        </div>
+        <!-- 折叠状态下的logo显示 -->
+        <div class="logo-content-collapsed" v-else>
+          <div class="logo-icon-collapsed">
+            <IconLanguage />
+          </div>
+        </div>
+      </div>
       <a-menu
         :defaultOpenKeys="['1']"
         :selectedKeys="[selectedMenuKey]"
         @menuItemClick="onClickMenuItem"
       >
-        <!-- AI助手 - 所有用户可见 -->
-        <a-menu-item key="0_1" v-if="filteredMenuItems.includes('0_1')">
+        <!-- Home - 所有用户可见，包括未登录用户 -->
+        <a-menu-item key="0">
           <IconHome />
-          AI助手 / AI Assistant
-        </a-menu-item>
-        
-        <!-- 翻译工具 - 所有用户可见 -->
-        <a-menu-item key="0_2" v-if="filteredMenuItems.includes('0_2')">
-          <IconEdit />
-          翻译工具 / Translator
+          Home
         </a-menu-item>
         
         <!-- 本地化管理 - 根据权限显示子菜单 -->
@@ -57,72 +68,52 @@
     </a-layout-sider>
     <a-layout>
       <a-layout-header>
-        <a-menu
-          :openKeys="['1']"
-          :selectedKeys="[selectedMenuKey]"
-          mode='horizontal'
-        >
-          <!-- AI助手 - 所有用户可见 -->
-          <a-menu-item key="0_1" @click="onClickMenuItem('0_1')" v-if="filteredMenuItems.includes('0_1')">
-            <IconHome />
-            AI助手 / AI Assistant
-          </a-menu-item>
+        <div class="header-content">
+          <div class="header-left">
+            <!-- 左侧内容已移除 -->
+          </div>
           
-          <!-- 翻译工具 - 所有用户可见 -->
-          <a-menu-item key="0_2" @click="onClickMenuItem('0_2')" v-if="filteredMenuItems.includes('0_2')">
-            <IconEdit />
-            翻译工具 / Translator
-          </a-menu-item>
-          
-          <!-- 本地化管理 - 根据权限显示子菜单 -->
-          <a-sub-menu key="1" v-if="filteredMenuItems.some(item => item.startsWith('1_'))">
-            <template #title>
-              <span><IconApps />本地化管理 / L10n Management</span>
-            </template>
+          <div class="header-right">
+            <!-- 登录/登出按钮 -->
+            <a-button 
+              v-if="!isLoggedIn" 
+              type="primary" 
+              @click="toggleLogin" 
+              class="login-button"
+            >
+              登录 / Login
+            </a-button>
+            <a-button 
+              v-else 
+              type="outline" 
+              @click="toggleLogin" 
+              class="logout-button"
+            >
+              登出 / Logout
+            </a-button>
             
-            <!-- 请求管理 - 所有登录用户可见 -->
-            <a-menu-item key="1_1" @click="onClickMenuItem('1_1')" v-if="filteredMenuItems.includes('1_1')">
-              请求管理 / Request Management
-            </a-menu-item>
-            
-            <!-- 项目管理 - LM和BO可见 -->
-            <a-menu-item key="1_2" @click="onClickMenuItem('1_2')" v-if="filteredMenuItems.includes('1_2')">
-              项目管理 / Project Management
-            </a-menu-item>
-            
-            <!-- 财务管理 - 仅LM和FT可见 -->
-            <a-menu-item key="1_3" @click="onClickMenuItem('1_3')" v-if="filteredMenuItems.includes('1_3')">
-              财务管理 / Financial Management
-            </a-menu-item>
-          </a-sub-menu>
-          
-          <!-- 系统设置 - 仅LM可见 -->
-          <a-menu-item key="2" @click="onClickMenuItem('2')" v-if="filteredMenuItems.includes('2')">
-            <IconSettings />
-            系统设置 / Settings
-          </a-menu-item>
-        </a-menu>
-        <div class="user-avatar">
-          <a-avatar @click="toggleLogin" v-if="!isLoggedIn">
-            登录 / Login
-          </a-avatar>
-          <a-dropdown v-else trigger="click">
-            <a-avatar @click="toggleLogin">
-              {{ userName.charAt(0).toUpperCase() }}
-            </a-avatar>
-            <template #content>
-              <a-doption>
-                <div class="user-dropdown-item">
-                  <span>{{ userName }}</span>
-                  <span class="user-role">{{ userRole === 'LM' ? '本地化经理 / LM' : userRole === 'FT' ? '财务团队 / FT' : '业务负责人 / BO' }}</span>
-                </div>
-              </a-doption>
-              <a-doption @click="toggleLogin">
-                <IconExport />
-                退出登录 / Logout
-              </a-doption>
-            </template>
-          </a-dropdown>
+            <div class="user-avatar">
+              <!-- 未登录状态显示空白头像 -->
+              <a-avatar v-if="!isLoggedIn" :style="{ backgroundColor: '#f0f2f5', color: '#ccc' }">
+                <template #icon><IconUser /></template>
+              </a-avatar>
+              
+              <!-- 登录状态下显示用户信息 -->
+              <a-dropdown v-else trigger="click">
+                <a-avatar :style="{ backgroundColor: '#3c9ae8' }">
+                  {{ userName.charAt(0).toUpperCase() }}
+                </a-avatar>
+                <template #content>
+                  <a-doption>
+                    <div class="user-dropdown-item">
+                      <span>{{ userName }}</span>
+                      <span class="user-role">{{ userRole === 'LM' ? '本地化经理 / LM' : userRole === 'FT' ? '财务团队 / FT' : '业务负责人 / BO' }}</span>
+                    </div>
+                  </a-doption>
+                </template>
+              </a-dropdown>
+            </div>
+          </div>
         </div>
       </a-layout-header>
       <a-layout style="padding: 0 24px">
@@ -131,29 +122,74 @@
           <a-breadcrumb-item>{{ getBreadcrumbText() }}</a-breadcrumb-item>
         </a-breadcrumb>
         <a-layout-content style="color: black;">
-          <!-- AI助手页面 -->
-          <div v-if="currentPage === 'menu1'">
-            <h1>Arno's AI</h1>
-            <div class="chat-container">
-              <div class="chat-history" ref="chatHistory">
-                <div v-for="(message, index) in messages" :key="index" class="chat-message" :class="{'user-message': message.sender === 'User', 'assistant-message': message.sender === 'Assistant'}">
-                  <strong>{{ message.sender }}:</strong> <span v-html="message.text"></span>
+          <!-- Home页面 -->
+          <div v-if="currentPage === 'home'" class="home-container">
+            <h1 class="home-title">Welcome to LingoFlows</h1>
+            <h2 class="home-subtitle">Collaborative Localization Management Platform</h2>
+            
+            <div class="home-content">
+              <div class="home-section">
+                <h3>About LingoFlows</h3>
+                <p>
+                  LingoFlows is a comprehensive localization management platform designed to streamline the translation 
+                  and localization process for businesses of all sizes. Our platform provides powerful tools for request 
+                  management, project tracking, and financial reporting in a collaborative environment.
+                </p>
+              </div>
+              
+              <div class="home-section">
+                <h3>Key Features</h3>
+                <ul>
+                  <li><strong>Request Management:</strong> Submit and track localization requests</li>
+                  <li><strong>Project Management:</strong> Monitor localization projects from start to finish</li>
+                  <li><strong>Financial Management:</strong> Track costs, quotes, and invoices</li>
+                  <li><strong>Team Collaboration:</strong> Connect business owners, project managers, LSPs, and procurement teams</li>
+                </ul>
+              </div>
+              
+              <div class="home-section home-login-info">
+                <h3>Getting Started</h3>
+                <p>To access the platform features, please log in using the credentials provided by your administrator.</p>
+                
+                <div class="demo-accounts">
+                  <h4>Demo Accounts</h4>
+                  <div class="account-card">
+                    <div class="account-type">Project Manager (PM)</div>
+                    <div class="account-creds">
+                      <span>Username: admin</span>
+                      <span>Password: admin123</span>
+                    </div>
+                    <div class="account-desc">Full access to all platform features</div>
+                  </div>
+                  
+                  <div class="account-card">
+                    <div class="account-type">Business Owner (BO)</div>
+                    <div class="account-creds">
+                      <span>Username: bo</span>
+                      <span>Password: bo123</span>
+                    </div>
+                    <div class="account-desc">Access to request and personal project management</div>
+                  </div>
+                  
+                  <div class="account-card">
+                    <div class="account-type">Finance Team (FT)</div>
+                    <div class="account-creds">
+                      <span>Username: ft</span>
+                      <span>Password: ft123</span>
+                    </div>
+                    <div class="account-desc">Access to financial reports, quotes, and invoicing</div>
+                  </div>
                 </div>
               </div>
-              <a-input
-                v-model="userInput"
-                placeholder="Type your message..."
-                @keyup.enter="sendMessage"
-                style="margin-top: 16px;"
-              />
-              <a-button type="primary" @click="sendMessage" style="margin-top: 8px;">发送 / Send</a-button>
+              
+              <div class="home-section">
+                <h3>Contact Support</h3>
+                <p>
+                  For assistance with the platform, please contact our support team at:
+                  <a href="mailto:support@lingoflows.com">support@lingoflows.com</a>
+                </p>
+              </div>
             </div>
-          </div>
-          
-          <!-- 翻译工具页面 -->
-          <div v-if="currentPage === 'translator'">
-            <h1>Arno's Translator</h1>
-            <TranslationForm />
           </div>
           
           <!-- 请求管理页面 -->
@@ -219,9 +255,10 @@ import {
   IconApps,
   IconEdit,
   IconExport,
+  IconLanguage,
+  IconUser,
 } from '@arco-design/web-vue/es/icon';
 import { Avatar } from '@arco-design/web-vue';
-import TranslationForm from './components/TranslationForm.vue'; 
 import RequestForm from './components/RequestForm.vue';
 import ProjectManagement from './components/ProjectManagement.vue';
 import FinancialManagement from './components/FinancialManagement.vue';
@@ -235,8 +272,9 @@ export default defineComponent({
     IconApps,
     IconEdit,
     IconExport,
+    IconLanguage,
+    IconUser,
     Avatar,
-    TranslationForm,
     RequestForm,
     ProjectManagement,
     FinancialManagement,
@@ -252,11 +290,8 @@ export default defineComponent({
       username: '',
       password: ''
     });
-    const currentPage = ref('menu1'); // 将初始值设置为'menu1'
-    const selectedMenuKey = ref('0_1'); // 将初始选中菜单项设置为'0_1'
-    const messages = ref([]); // 存储聊天记录
-    const userInput = ref(''); // 存储用户输入
-    const chatHistory = ref(null); // 用于滚动到底部
+    const currentPage = ref('home'); // 将初始值设置为'home'
+    const selectedMenuKey = ref('0'); // 将初始选中菜单项设置为'0'
     const columns = ref([
       { title: 'Project Name', dataIndex: 'projectName', key: 'projectName' },
       { title: 'Project Status', dataIndex: 'projectStatus', key: 'projectStatus' },
@@ -273,10 +308,14 @@ export default defineComponent({
 
     // 检查用户是否有权限访问某个页面
     const hasPermission = (page) => {
+      // 所有用户都可以访问Home页面
+      if (page === 'home') return true;
+      
+      // 未登录用户只能访问Home页面
       if (!isLoggedIn.value) return false;
       
       // 所有用户都可以访问的页面
-      const commonPages = ['menu1', 'translator', 'request_management'];
+      const commonPages = ['request_management'];
       if (commonPages.includes(page)) return true;
       
       // LM可以访问所有页面
@@ -284,13 +323,13 @@ export default defineComponent({
       
       // BO只能访问特定页面
       if (userRole.value === 'BO') {
-        const boPages = ['menu1', 'translator', 'request_management', 'project_management'];
+        const boPages = ['request_management', 'project_management'];
         return boPages.includes(page);
       }
       
       // FT可以访问财务管理页面
       if (userRole.value === 'FT') {
-        const ftPages = ['menu1', 'translator', 'financial_management'];
+        const ftPages = ['financial_management'];
         return ftPages.includes(page);
       }
       
@@ -300,23 +339,23 @@ export default defineComponent({
     // 根据用户角色过滤菜单项
     const filteredMenuItems = computed(() => {
       if (!isLoggedIn.value) {
-        // 未登录用户只能看到AI助手和翻译工具
-        return ['0_1', '0_2'];
+        // 未登录用户只能看到Home
+        return [];
       }
       
       if (userRole.value === 'LM') {
         // LM可以看到所有菜单项
-        return ['0_1', '0_2', '1_1', '1_2', '1_3', '2'];
+        return ['1_1', '1_2', '1_3', '2'];
       }
       
       if (userRole.value === 'BO') {
-        // BO只能看到AI助手、翻译工具、请求管理和项目管理
-        return ['0_1', '0_2', '1_1', '1_2'];
+        // BO只能看到请求管理和项目管理
+        return ['1_1', '1_2'];
       }
       
       if (userRole.value === 'FT') {
-        // FT只能看到AI助手、翻译工具和财务管理
-        return ['0_1', '0_2', '1_3'];
+        // FT只能看到财务管理
+        return ['1_3'];
       }
       
       return [];
@@ -324,6 +363,31 @@ export default defineComponent({
 
     const onCollapse = (val) => {
       collapsed.value = val;
+    };
+
+    const toggleLogin = () => {
+      if (!isLoggedIn.value) {
+        visible.value = true;
+      } else {
+        // 登出
+        isLoggedIn.value = false;
+        userName.value = '';
+        userRole.value = '';
+        userId.value = null;
+        
+        // 清除令牌
+        localStorage.removeItem('token');
+        axios.defaults.headers.common['Authorization'] = '';
+        
+        // 重定向到Home页面
+        currentPage.value = 'home';
+        selectedMenuKey.value = '0';
+        
+        Message.info({
+          content: '已退出登录 / Logged out',
+          duration: 2000,
+        });
+      }
     };
 
     // 检查本地存储的令牌并自动登录
@@ -355,43 +419,25 @@ export default defineComponent({
           if (response.data.role === 'FT') {
             currentPage.value = 'financial_management';
             selectedMenuKey.value = '1_3';
+          } else {
+            // 其他角色默认进入请求管理页面
+            currentPage.value = 'request_management';
+            selectedMenuKey.value = '1_1';
           }
         } catch (error) {
           console.error('自动登录失败:', error);
           // 清除无效令牌
           localStorage.removeItem('token');
           axios.defaults.headers.common['Authorization'] = '';
+          // 确保未登录用户回到Home页面
+          currentPage.value = 'home';
+          selectedMenuKey.value = '0';
         }
       }
     };
 
     // 页面加载时检查认证状态
     checkAuth();
-
-    const toggleLogin = () => {
-      if (!isLoggedIn.value) {
-        visible.value = true;
-      } else {
-        // 登出
-        isLoggedIn.value = false;
-        userName.value = '';
-        userRole.value = '';
-        userId.value = null;
-        
-        // 清除令牌
-        localStorage.removeItem('token');
-        axios.defaults.headers.common['Authorization'] = '';
-        
-        // 重定向到首页
-        currentPage.value = 'menu1';
-        selectedMenuKey.value = '0_1';
-        
-        Message.info({
-          content: '已退出登录 / Logged out',
-          duration: 2000,
-        });
-      }
-    };
 
     const handleBeforeOk = async (done) => {
       if (!form.username || !form.password) {
@@ -439,6 +485,10 @@ export default defineComponent({
         if (user.role === 'FT') {
           currentPage.value = 'financial_management';
           selectedMenuKey.value = '1_3';
+        } else {
+          // 其他角色默认进入请求管理页面
+          currentPage.value = 'request_management';
+          selectedMenuKey.value = '1_1';
         }
       } catch (error) {
         console.error('登录失败:', error);
@@ -480,11 +530,8 @@ export default defineComponent({
       let targetPage = '';
       
       switch (key) {
-        case '0_1':
-          targetPage = 'menu1';
-          break;
-        case '0_2':
-          targetPage = 'translator'; 
+        case '0':
+          targetPage = 'home';
           break;
         case '1_1':
           targetPage = 'request_management'; 
@@ -499,7 +546,7 @@ export default defineComponent({
           targetPage = 'settings'; 
           break;
         default:
-          targetPage = 'menu1';
+          targetPage = 'home';
       }
       
       // 检查权限
@@ -519,10 +566,8 @@ export default defineComponent({
     
     const getBreadcrumbText = () => {
       switch (currentPage.value) {
-        case 'menu1':
-          return 'AI助手 / AI Assistant';
-        case 'translator':
-          return '翻译工具 / Translator';
+        case 'home':
+          return 'Home';
         case 'request_management':
           return '请求管理 / Request Management';
         case 'project_management':
@@ -533,61 +578,6 @@ export default defineComponent({
           return '系统设置 / Settings';
         default:
           return '';
-      }
-    };
-
-    const scrollToBottom = () => {
-      if (chatHistory.value) {
-        chatHistory.value.scrollTop = chatHistory.value.scrollHeight;
-      }
-    };
-
-    const sendMessage = async () => {
-      if (userInput.value.trim() === '') return; // 防止发送空消息
-      messages.value.push({ sender: 'User', text: userInput.value }); // 添加用户消息
-      scrollToBottom(); // 滚动到底部
-
-      // 调用 API 获取助手的回复
-      try {
-        const apiResponse = await getChatResponse(userInput.value);
-        await displayAssistantResponse(apiResponse); // 逐字显示助手回复
-        scrollToBottom(); // 滚动到底部
-      } catch (error) {
-        console.error('Error fetching response:', error);
-        messages.value.push({ sender: 'Assistant', text: 'Error occurred while fetching response.' });
-        scrollToBottom(); // 滚动到底部
-      }
-
-      userInput.value = ''; // 清空
-    };
-
-    const displayAssistantResponse = (response) => {
-      return new Promise((resolve) => {
-        const assistantMessage = { sender: 'Assistant', text: '' }; // 初始化助手消息
-        messages.value.push(assistantMessage); // 添加空的助手消息
-
-        let index = 0;
-        const interval = setInterval(() => {
-          if (index < response.length) {
-            assistantMessage.text += response[index]; // 逐字添加
-            index++;
-          } else {
-            clearInterval(interval); // 停止定时器
-            resolve(); // 完成 Promise
-          }
-        }, 50); // 每 50ms 显示一个字
-      });
-    };
-
-    const getChatResponse = async (userMessage) => {
-      try {
-        const response = await axios.post('http://localhost:5000/api/chat', {
-          message: userMessage
-        });
-        return response.data.response; // 返回助手的回复
-      } catch (error) {
-        console.error('Error fetching response:', error);
-        return 'Error occurred while fetching response.';
       }
     };
 
@@ -691,6 +681,11 @@ export default defineComponent({
       }
     });
 
+    const goToHome = () => {
+      currentPage.value = 'home';
+      selectedMenuKey.value = '0';
+    };
+
     return {
       collapsed,
       onCollapse,
@@ -705,10 +700,6 @@ export default defineComponent({
       currentPage,
       onClickMenuItem,
       selectedMenuKey,
-      messages,
-      userInput,
-      sendMessage,
-      chatHistory,
       columns,
       projectData,
       fetchProjectData,
@@ -717,6 +708,7 @@ export default defineComponent({
       hasPermission,
       loginLoading,
       userId,
+      goToHome,
     };
   }
 });
@@ -734,17 +726,66 @@ export default defineComponent({
   height: 100%;
   overflow-y: hidden;
 }
+
+/* 覆盖Arco Design侧边栏内边距 */
+.layout-demo :deep(.arco-layout-sider-children) {
+  padding: 0 !important;
+}
+
 .layout-demo :deep(.arco-layout-header)  {
   height: 64px;
   line-height: 64px;
   background: var(--color-bg-3);
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 16px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+}
+
+.header-left {
+  display: none;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.login-button, .logout-button {
+  height: 32px;
+  font-size: 14px;
+}
+
+.logout-button {
+  color: #fff;
+  background-color: #3c9ae8;
+  border-color: #3c9ae8;
+}
+
+.logout-button:hover {
+  background-color: #2d8dd8;
+  border-color: #2d8dd8;
+}
+
+.user-avatar {
+  display: flex;
   align-items: center;
 }
-.user-avatar {
-  margin-right: 16px;
+
+.user-dropdown-item {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
 }
+
 .layout-demo :deep(.arco-layout-footer) {
   height: 48px;
   color: var(--color-text-2);
@@ -761,8 +802,8 @@ export default defineComponent({
   flex-direction: column;
   height: calc(100% - 112px);
   color: black;
-  /* 修改这里，禁用内容区域的滚动条 */
-  overflow-y: hidden;
+  /* 修改这里，启用内容区域的滚动条 */
+  overflow-y: auto;
 }
 .layout-demo :deep(.arco-layout-footer) {
   display: flex;
@@ -801,43 +842,234 @@ export default defineComponent({
 .action:hover {
   background: var(--color-fill-3);
 }
-.chat-container {
+
+/* Logo占位符样式 */
+.logo-placeholder {
+  height: 100px; /* 减小高度 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(45, 55, 72, 0.3));
+  border-radius: 8px;
+  margin: 8px; /* 减少外边距 */
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  width: calc(100% - 16px); /* 确保宽度计算包含边距 */
+}
+
+.logo-placeholder::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: 0.5s;
+}
+
+.logo-placeholder:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.logo-placeholder:hover::after {
+  left: 100%;
+}
+
+.logo-content {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start; /* 左对齐 */
+  width: 100%;
+  padding: 0 12px; /* 增加内边距 */
+}
+
+.logo-icon {
+  margin-right: 8px; /* 减小右边距 */
+  font-size: 2rem; /* 减小图标尺寸 */
+  color: transparent;
+  background: linear-gradient(135deg, #3c9ae8, #6c5ce7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  flex-shrink: 0; /* 防止图标被压缩 */
+}
+
+.logo-text {
   display: flex;
   flex-direction: column;
-  border: 1px solid #ccc;
-  padding: 16px;
+  align-items: flex-start;
+  text-align: left;
+  overflow: hidden; /* 防止文字溢出 */
+  max-width: calc(100% - 40px); /* 确保文本容器不会太宽 */
+}
+
+.logo-name {
+  font-size: 1.5rem; /* 进一步减小字体大小 */
+  font-weight: bold;
+  color: white;
+  letter-spacing: 0.5px; /* 减小字母间距 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  line-height: 1.2;
+  white-space: nowrap; 
+}
+
+.logo-highlight {
+  background: linear-gradient(90deg, #3c9ae8, #6c5ce7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 800;
+}
+
+.logo-tagline {
+  font-size: 0.6rem; /* 减小字体大小 */
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.5px; /* 减小字母间距 */
+  white-space: nowrap; /* 防止文字换行 */
+  width: 100%; /* 确保宽度占满 */
+}
+
+/* Home页面样式 */
+.home-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.home-title {
+  font-size: 2.5rem;
+  color: #303133;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.home-subtitle {
+  font-size: 1.5rem;
+  color: #606266;
+  text-align: center;
+  margin-bottom: 40px;
+  font-weight: normal;
+}
+
+.home-content {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.home-section {
+  background-color: #fff;
   border-radius: 8px;
-  background-color: #f9f9f9;
-  max-height: 400px;
-  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
-.chat-history {
-  max-height: 300px;
-  overflow-y: auto;
-  margin-bottom: 16px;
+.home-section h3 {
+  color: #303133;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
 }
 
-.chat-message {
-  margin-bottom: 8px;
-  border-radius: 10px;
+.home-section p {
+  color: #606266;
+  line-height: 1.6;
+}
+
+.home-section ul {
+  padding-left: 20px;
+}
+
+.home-section li {
+  margin-bottom: 10px;
+  color: #606266;
+}
+
+.home-login-info {
+  background-color: #f0f9ff;
+}
+
+.demo-accounts {
+  margin-top: 20px;
+}
+
+.account-card {
+  background-color: white;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.account-type {
+  font-weight: bold;
+  color: #303133;
+  margin-bottom: 10px;
+}
+
+.account-creds {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+  font-family: monospace;
+  background-color: #f5f7fa;
   padding: 10px;
-  max-width: 70%;
-  word-wrap: break-word;
-  display: inline-block; 
+  border-radius: 4px;
 }
 
-.user-message {
-  background-color: #d1e7dd; 
-  align-self: flex-end; 
-  margin-left: auto; 
-  max-width: 80%; 
+.account-creds span {
+  margin-bottom: 5px;
 }
 
-.assistant-message {
-  background-color: #f8d7da;
-  align-self: flex-start;
-  margin-right: auto; 
-  max-width: 80%; 
+.account-desc {
+  color: #909399;
+  font-size: 0.9rem;
+}
+
+/* 折叠状态下的Logo样式 */
+.logo-content-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0; /* 移除内边距 */
+}
+
+.logo-icon-collapsed {
+  font-size: 2.2rem;
+  color: transparent;
+  background: linear-gradient(135deg, #3c9ae8, #6c5ce7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  animation: pulse 2s infinite;
+  margin: 0; 
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 </style>
