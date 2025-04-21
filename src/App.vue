@@ -802,9 +802,9 @@ export default defineComponent({
   flex-direction: column;
   height: calc(100% - 112px);
   color: black;
-  /* 修改这里，启用内容区域的滚动条 */
   overflow-y: auto;
 }
+
 .layout-demo :deep(.arco-layout-footer) {
   display: flex;
   flex-direction: column;
@@ -891,17 +891,17 @@ export default defineComponent({
 }
 
 .logo-icon {
-  margin-right: 8px; /* 减小右边距 */
-  font-size: 2rem; /* 减小图标尺寸 */
+  margin-right: 8px; 
+  font-size: 2rem;
   color: transparent;
-  background: linear-gradient(135deg, #3c9ae8, #6c5ce7);
+  background: linear-gradient(135deg, #3c9ae8, #3c9ae8);
   -webkit-background-clip: text;
-  background-clip: text;
+  background-clip: text;  
   display: flex;
   align-items: center;
   justify-content: center;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-  flex-shrink: 0; /* 防止图标被压缩 */
+  flex-shrink: 0; 
 }
 
 .logo-text {
@@ -909,22 +909,22 @@ export default defineComponent({
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  overflow: hidden; /* 防止文字溢出 */
-  max-width: calc(100% - 40px); /* 确保文本容器不会太宽 */
+  overflow: hidden; 
+  max-width: calc(100% - 40px); 
 }
 
 .logo-name {
-  font-size: 1.5rem; /* 进一步减小字体大小 */
+  font-size: 1.5rem; 
   font-weight: bold;
   color: white;
-  letter-spacing: 0.5px; /* 减小字母间距 */
+  letter-spacing: 0.5px; 
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   line-height: 1.2;
   white-space: nowrap; 
 }
 
 .logo-highlight {
-  background: linear-gradient(90deg, #3c9ae8, #6c5ce7);
+  background: linear-gradient(90deg, #3c9ae8, #3c9ae8);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -932,12 +932,12 @@ export default defineComponent({
 }
 
 .logo-tagline {
-  font-size: 0.6rem; /* 减小字体大小 */
+  font-size: 0.6rem; 
   color: rgba(255, 255, 255, 0.8);
   text-transform: uppercase;
-  letter-spacing: 0.5px; /* 减小字母间距 */
-  white-space: nowrap; /* 防止文字换行 */
-  width: 100%; /* 确保宽度占满 */
+  letter-spacing: 0.5px; 
+  white-space: nowrap; 
+  width: 100%; 
 }
 
 /* Home页面样式 */
