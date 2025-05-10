@@ -40,29 +40,29 @@
         <!-- 本地化管理 - 根据权限显示子菜单 -->
         <a-sub-menu key="1" v-if="filteredMenuItems.some(item => item.startsWith('1_'))">
           <template #title>
-            <span><IconApps />本地化管理 / L10n Management</span>
+            <span><IconApps />L10n Management</span>
           </template>
           
           <!-- 请求管理 - 所有登录用户可见 -->
           <a-menu-item key="1_1" v-if="filteredMenuItems.includes('1_1')">
-            请求管理 / Request Management
+            Request Management
           </a-menu-item>
           
           <!-- 项目管理 - LM和BO可见 -->
           <a-menu-item key="1_2" v-if="filteredMenuItems.includes('1_2')">
-            项目管理 / Project Management
+            Project Management
           </a-menu-item>
           
           <!-- 财务管理 - 仅LM和FT可见 -->
           <a-menu-item key="1_3" v-if="filteredMenuItems.includes('1_3')">
-            财务管理 / Financial Management
+            Financial Management
           </a-menu-item>
         </a-sub-menu>
         
         <!-- 系统设置 - 仅LM可见 -->
         <a-menu-item key="2" v-if="filteredMenuItems.includes('2')">
           <IconSettings />
-          系统设置 / Settings
+          Settings
         </a-menu-item>
       </a-menu>
     </a-layout-sider>
@@ -81,7 +81,7 @@
               @click="toggleLogin" 
               class="login-button"
             >
-              登录 / Login
+              Login
             </a-button>
             <a-button 
               v-else 
@@ -89,7 +89,7 @@
               @click="toggleLogin" 
               class="logout-button"
             >
-              登出 / Logout
+              Logout
             </a-button>
             
             <div class="user-avatar">
@@ -107,7 +107,7 @@
                   <a-doption>
                     <div class="user-dropdown-item">
                       <span>{{ userName }}</span>
-                      <span class="user-role">{{ userRole === 'LM' ? '本地化经理 / LM' : userRole === 'FT' ? '财务团队 / FT' : '业务负责人 / BO' }}</span>
+                      <span class="user-role">{{ userRole === 'LM' ? 'LM' : userRole === 'FT' ? 'FT' : 'BO' }}</span>
                     </div>
                   </a-doption>
                 </template>
@@ -118,7 +118,7 @@
       </a-layout-header>
       <a-layout style="padding: 0 24px">
         <a-breadcrumb :style="{ margin: '16px 0' }">
-          <a-breadcrumb-item>首页 / Home</a-breadcrumb-item>
+          <a-breadcrumb-item>Home</a-breadcrumb-item>
           <a-breadcrumb-item>{{ getBreadcrumbText() }}</a-breadcrumb-item>
         </a-breadcrumb>
         <a-layout-content style="color: black;">
@@ -209,8 +209,8 @@
           
           <!-- 系统设置页面 -->
           <div v-if="currentPage === 'settings'">
-            <h1>系统设置 / System Settings</h1>
-            <p>系统设置页面正在开发中... / System settings page is under development...</p>
+            <h1>System Settings</h1>
+            <p>System settings page is under development...</p>
           </div>
         </a-layout-content>
         <a-layout-footer>
@@ -223,19 +223,19 @@
     </a-layout>
 
     <!-- 登录弹窗 -->
-    <a-modal v-model:visible="visible" title="登录 / Login" @cancel="handleCancel" @ok="handleBeforeOk" :ok-loading="loginLoading">
+    <a-modal v-model:visible="visible" title="Login" @cancel="handleCancel" @ok="handleBeforeOk" :ok-loading="loginLoading">
       <a-form :model="form">
-        <a-form-item field="username" label="用户名 / Username">
+        <a-form-item field="username" label="Username">
           <a-input v-model="form.username" />
         </a-form-item>
-        <a-form-item field="password" label="密码 / Password">
+        <a-form-item field="password" label="Password">
           <a-input type="password" v-model="form.password" />
         </a-form-item>
       </a-form>
       <template #footer>
         <a-space>
-          <a-button @click="handleCancel">取消 / Cancel</a-button>
-          <a-button type="primary" @click="handleBeforeOk" :loading="loginLoading">登录 / Login</a-button>
+          <a-button @click="handleCancel">Cancel</a-button>
+          <a-button type="primary" @click="handleBeforeOk" :loading="loginLoading">Login</a-button>
         </a-space>
       </template>
     </a-modal>
@@ -305,7 +305,7 @@ export default defineComponent({
     ]);
     const projectData = ref([]);
     const loginLoading = ref(false);
-
+  
     // 检查用户是否有权限访问某个页面
     const hasPermission = (page) => {
       // 所有用户都可以访问Home页面
@@ -360,11 +360,9 @@ export default defineComponent({
       
       return [];
     });
-
     const onCollapse = (val) => {
       collapsed.value = val;
     };
-
     const toggleLogin = () => {
       if (!isLoggedIn.value) {
         visible.value = true;
@@ -384,7 +382,7 @@ export default defineComponent({
         selectedMenuKey.value = '0';
         
         Message.info({
-          content: '已退出登录 / Logged out',
+          content: 'Logged out',
           duration: 2000,
         });
       }
@@ -408,7 +406,7 @@ export default defineComponent({
           isLoggedIn.value = true;
           
           Message.success({
-            content: '自动登录成功 / Auto login successful',
+            content: 'Auto login successful',
             duration: 2000,
           });
           
@@ -441,7 +439,7 @@ export default defineComponent({
 
     const handleBeforeOk = async (done) => {
       if (!form.username || !form.password) {
-        Message.error('请输入用户名和密码 / Please enter username and password');
+        Message.error('Please enter username and password');
         return;
       }
       
@@ -474,7 +472,7 @@ export default defineComponent({
         visible.value = false;
         
         Message.success({
-          content: '登录成功 / Login successful',
+          content: 'Login successful',
           duration: 2000,
         });
         
@@ -494,18 +492,18 @@ export default defineComponent({
         console.error('登录失败:', error);
         
         // 构建错误消息
-        let errorMsg = '登录失败 / Login failed';
+        let errorMsg = 'Login failed';
         
         if (error.response) {
           if (error.response.status === 401) {
-            errorMsg = '用户名或密码错误 / Invalid username or password';
+            errorMsg = 'Invalid username or password';
           } else if (error.response.status >= 500) {
-            errorMsg = '服务器错误，请稍后再试 / Server error, please try again later';
+            errorMsg = 'Server error, please try again later';
           } else if (error.response.data && error.response.data.error) {
             errorMsg = error.response.data.error;
           }
         } else if (error.request) {
-          errorMsg = '无法连接到服务器，请检查网络 / Cannot connect to server, please check your network';
+          errorMsg = 'Cannot connect to server, please check your network';
         }
         
         Message.error({
@@ -560,7 +558,7 @@ export default defineComponent({
           fetchProjectData();
         }
       } else {
-        Message.error('您没有权限访问此页面 / You do not have permission to access this page');
+        Message.error('You do not have permission to access this page');
       }
     };
     
@@ -569,13 +567,13 @@ export default defineComponent({
         case 'home':
           return 'Home';
         case 'request_management':
-          return '请求管理 / Request Management';
+          return 'Request Management';
         case 'project_management':
-          return '项目管理 / Project Management';
+          return 'Project Management';
         case 'financial_management':
-          return '财务管理 / Financial Management';
+          return 'Financial Management';
         case 'settings':
-          return '系统设置 / Settings';
+          return 'Settings';
         default:
           return '';
       }
@@ -721,15 +719,18 @@ export default defineComponent({
   border: 1px solid var(--color-border);
   /* 确保整个布局容器只有一个滚动条 */
   overflow: hidden;
+  font-style: normal; /* 添加这行确保文字不会是斜体 */
 }
 .layout-demo :deep(.arco-layout-sider) {
   height: 100%;
   overflow-y: hidden;
+  font-style: normal; /* 添加这行确保侧边栏文字不会是斜体 */
 }
 
 /* 覆盖Arco Design侧边栏内边距 */
 .layout-demo :deep(.arco-layout-sider-children) {
   padding: 0 !important;
+  font-style: normal; /* 添加这行确保侧边栏子元素文字不会是斜体 */
 }
 
 .layout-demo :deep(.arco-layout-header)  {
@@ -740,6 +741,7 @@ export default defineComponent({
   justify-content: flex-end;
   align-items: center;
   padding: 0 16px;
+  font-style: normal; /* 添加这行确保头部文字不会是斜体 */
 }
 
 .header-content {
@@ -1044,7 +1046,7 @@ export default defineComponent({
   justify-content: center;
   width: 100%;
   height: 100%;
-  padding: 0; /* 移除内边距 */
+  padding: 0; 
 }
 
 .logo-icon-collapsed {
@@ -1071,5 +1073,10 @@ export default defineComponent({
   100% {
     transform: scale(1);
   }
+}
+
+/* 全局样式覆盖，确保所有文本都不是斜体 */
+:deep(*) {
+  font-style: normal !important;
 }
 </style>

@@ -5,20 +5,20 @@
       <a-space>
         <a-dropdown trigger="click" v-if="userRole === 'LM' || userRole === 'BO'" :disabled="exportLoading">
           <a-button type="primary" :loading="exportLoading">
-            导出CSV / Export CSV
+            Export CSV
             <icon-down v-if="!exportLoading" />
           </a-button>
           <template #content>
             <a-doption @click="exportToCSV(true)" :disabled="filteredProjects.length === 0">
-              导出筛选数据 / Export Filtered Data ({{ filteredProjects.length }})
+              Export Filtered Data ({{ filteredProjects.length }})
             </a-doption>
             <a-doption @click="exportToCSV(false)" :disabled="projects.length === 0">
-              导出全部数据 / Export All Data ({{ projects.length }})
+              Export All Data ({{ projects.length }})
             </a-doption>
           </template>
         </a-dropdown>
         <a-button type="primary" @click="refreshProjects" :loading="loading">
-          刷新列表 / Refresh List
+          Refresh List
         </a-button>
       </a-space>
     </div>
@@ -26,38 +26,38 @@
     <div class="action-bar">
       <a-input-search
         v-model="searchKeyword"
-        placeholder="搜索项目 / Search projects"
+        placeholder="Search projects"
         style="width: 300px; margin-right: 16px;"
         @search="handleSearch"
       />
       <a-select
         v-model="statusFilter"
-        placeholder="项目状态 / Project Status"
+        placeholder="Project Status"
         style="width: 200px; margin-right: 16px;"
         allow-clear
         @change="handleStatusChange"
       >
-        <a-option value="all">全部 / All</a-option>
-        <a-option value="pending">待处理 / Pending</a-option>
-        <a-option value="in_progress">进行中 / In Progress</a-option>
-        <a-option value="completed">已完成 / Completed</a-option>
-        <a-option value="cancelled">已取消 / Cancelled</a-option>
+        <a-option value="all">All</a-option>
+        <a-option value="pending">Pending</a-option>
+        <a-option value="in_progress">In Progress</a-option>
+        <a-option value="completed">Completed</a-option>
+        <a-option value="cancelled">Cancelled</a-option>
       </a-select>
       <a-select
         v-model="projectManagerFilter"
-        placeholder="项目经理 / Project Manager"
+        placeholder="Project Manager"
         style="width: 200px; margin-right: 16px;"
         allow-clear
         @change="handleManagerChange"
       >
-        <a-option value="all">全部 / All</a-option>
+        <a-option value="all">All</a-option>
         <a-option v-for="manager in uniqueProjectManagers" :key="manager" :value="manager">
           {{ manager }}
         </a-option>
       </a-select>
       <a-date-picker
         v-model="deliveryDateFilter"
-        placeholder="交付日期筛选 / Delivery Date Filter"
+        placeholder="Delivery Date Filter"
         style="width: 220px; margin-right: 16px;"
         allow-clear
         @change="handleDeliveryDateChange"
@@ -66,10 +66,10 @@
           <div style="padding: 0 10px; text-align: right;">
             <a-space>
               <a-radio-group v-model="dateFilterMode" type="button" size="small">
-                <a-radio value="before">早于 / Before</a-radio>
-                <a-radio value="after">晚于 / After</a-radio>
+                <a-radio value="before">Before</a-radio>
+                <a-radio value="after">After</a-radio>
               </a-radio-group>
-              <a-button type="text" @click="handleDateFilterReset">重置 / Reset</a-button>
+              <a-button type="text" @click="handleDateFilterReset">Reset</a-button>
             </a-space>
           </div>
         </template>
@@ -92,12 +92,12 @@
       <!-- 空状态提示 -->
       <template #empty>
         <div style="text-align: center; padding: 20px;">
-          <a-empty description="暂无项目数据 / No project data available">
+          <a-empty description="No project data available">
             <template #image>
               <icon-file style="font-size: 48px; color: #c2c7d0;" />
             </template>
             <a-button type="primary" @click="refreshProjects">
-              刷新 / Refresh
+              Refresh
             </a-button>
           </a-empty>
         </div>
@@ -155,16 +155,16 @@
       <template #operations="{ record }">
         <a-space>
           <a-button type="text" size="small" @click="onViewProject(record)">
-            查看 / View
+            View
           </a-button>
           <a-button type="text" size="small" @click="onEditProject(record)" v-if="userRole === 'LM'">
-            编辑 / Edit
+            Edit
           </a-button>
           <a-button type="text" size="small" @click="onSendEmail(record)" v-if="userRole === 'LM'">
-            发送邮件 / Send Email
+            Send Email
           </a-button>
           <a-button type="text" size="small" @click="onUploadFiles(record)" v-if="userRole === 'LM' || (userRole === 'BO' && canPerformAction(record, userId, userRole))">
-            上传文件 / Upload Files
+            Upload Files
           </a-button>
         </a-space>
       </template>
@@ -213,14 +213,14 @@ const emit = defineEmits([
 // 表格列定义
 const columns = [
   {
-    title: '项目名称 / Project Name',
+    title: 'Project Name',
     dataIndex: 'projectName',
     key: 'projectName',
     sortable: true,
     resizable: true,
   },
   {
-    title: '项目状态 / Project Status',
+    title: 'Project Status',
     dataIndex: 'projectStatus',
     key: 'projectStatus',
     slotName: 'projectStatus',
@@ -228,62 +228,62 @@ const columns = [
     resizable: true,
   },
   {
-    title: '请求名称 / Request Name',
+    title: 'Request Name',
     dataIndex: 'requestName',
     key: 'requestName',
     resizable: true,
   },
   {
-    title: '项目经理 / Project Manager',
+    title: 'Project Manager',
     dataIndex: 'projectManager',
     key: 'projectManager',
     sortable: true,
     resizable: true,
   },
   {
-    title: '创建时间 / Create Time',
+    title: 'Create Time',
     dataIndex: 'createTime',
     key: 'createTime',
     sortable: true,
     resizable: true,
   },
   {
-    title: '预期交付日期 / Expected Delivery Date',
+    title: 'Expected Delivery Date',
     dataIndex: 'expectedDeliveryDate',
     key: 'expectedDeliveryDate',
     sortable: true,
     resizable: true,
   },
   {
-    title: '翻译任务 / Translation Task',
+    title: 'Translation Task',
     dataIndex: 'taskTranslation',
     key: 'taskTranslation',
     slotName: 'taskTranslation',
     resizable: true,
   },
   {
-    title: 'LQA任务 / LQA Task',
+    title: 'LQA Task',
     dataIndex: 'taskLQA',
     key: 'taskLQA',
     slotName: 'taskLQA',
     resizable: true,
   },
   {
-    title: '翻译更新 / Translation Update',
+    title: 'Translation Update',
     dataIndex: 'taskTranslationUpdate',
     key: 'taskTranslationUpdate',
     slotName: 'taskTranslationUpdate',
     resizable: true,
   },
   {
-    title: 'LQA报告定稿 / LQA Report Finalization',
+    title: 'LQA Report Finalization',
     dataIndex: 'taskLQAReportFinalization',
     key: 'taskLQAReportFinalization',
     slotName: 'taskLQAReportFinalization',
     resizable: true,
   },
   {
-    title: '操作 / Operations',
+    title: 'Operations',
     slotName: 'operations',
     width: 250,
     resizable: true,
@@ -332,7 +332,7 @@ const filteredProjects = computed(() => {
     
     result = result.filter(project => {
       // 处理项目日期可能是字符串的情况
-      if (!project.expectedDeliveryDate || project.expectedDeliveryDate === '未设置 / Not set') {
+      if (!project.expectedDeliveryDate || project.expectedDeliveryDate === 'Not set') {
         return false; // 没有设置交付日期的项目不显示
       }
       
@@ -431,7 +431,7 @@ const fetchProjects = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
       console.error('未找到令牌，无法获取项目数据');
-      Message.error('未登录或会话已过期 / Not logged in or session expired');
+      Message.error('Not logged in or session expired');
       return;
     }
     
@@ -463,7 +463,7 @@ const fetchProjects = async () => {
       console.error('错误响应:', error.response.data);
       console.error('状态码:', error.response.status);
     }
-    Message.error('获取项目列表失败 / Failed to fetch projects');
+    Message.error('Failed to fetch projects');
     projects.value = [];
   } finally {
     loading.value = false;
@@ -506,28 +506,28 @@ const exportToCSV = async (filteredOnly = true) => {
     
     // 检查是否有数据可导出
     if (dataToExport.length === 0) {
-      Message.warning('没有数据可导出 / No data to export');
+      Message.warning('No data to export');
       return;
     }
     
     // 显示导出开始提示
     Message.loading({
-      content: `正在准备导出${dataToExport.length}条项目数据 / Preparing to export ${dataToExport.length} projects`,
+      content: `Preparing to export ${dataToExport.length} projects`,
       duration: 1000,
     });
     
     // CSV标题行
     const headers = [
-      '项目名称 / Project Name',
-      '项目状态 / Project Status',
-      '请求名称 / Request Name',
-      '项目经理 / Project Manager',
-      '创建时间 / Create Time',
-      '预期交付日期 / Expected Delivery Date',
-      '翻译任务 / Translation Task',
-      'LQA任务 / LQA Task',
-      '翻译更新 / Translation Update',
-      'LQA报告定稿 / LQA Report Finalization'
+      'Project Name',
+      'Project Status',
+      'Request Name',
+      'Project Manager',
+      'Create Time',
+      'Expected Delivery Date',
+      'Translation Task',
+      'LQA Task',
+      'Translation Update',
+      'LQA Report Finalization'
     ];
     
     // 将项目数据转换为CSV行
@@ -538,7 +538,7 @@ const exportToCSV = async (filteredOnly = true) => {
         project.requestName,
         project.projectManager,
         project.createTime,
-        project.expectedDeliveryDate || '未设置 / Not set',
+        project.expectedDeliveryDate || 'Not set',
         getTaskText(project.taskTranslation), // 转换任务状态为可读文本
         getTaskText(project.taskLQA),
         getTaskText(project.taskTranslationUpdate),
@@ -572,7 +572,7 @@ const exportToCSV = async (filteredOnly = true) => {
     
     // 设置下载属性
     const dateStr = new Date().toISOString().slice(0, 10); // 格式: YYYY-MM-DD
-    const fileType = filteredOnly ? '筛选项目' : '全部项目';
+    const fileType = filteredOnly ? 'filtered_projects' : 'all_projects';
     link.setAttribute('href', url);
     link.setAttribute('download', `${fileType}_${dateStr}.csv`);
     link.style.visibility = 'hidden';
@@ -586,13 +586,13 @@ const exportToCSV = async (filteredOnly = true) => {
     URL.revokeObjectURL(url);
     
     Message.success({
-      content: `成功导出${dataToExport.length}条项目数据 / Successfully exported ${dataToExport.length} projects`,
+      content: `Successfully exported ${dataToExport.length} projects`,
       duration: 3000
     });
   } catch (error) {
     console.error('导出CSV时发生错误:', error);
     Message.error({
-      content: '导出失败，请重试 / Export failed, please try again',
+      content: 'Export failed, please try again',
       duration: 3000
     });
   } finally {

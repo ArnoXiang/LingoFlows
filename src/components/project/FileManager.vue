@@ -2,22 +2,22 @@
   <div class="file-manager-container" v-if="visible">
     <a-spin :loading="loadingFiles">
       <div v-if="projectFiles.length === 0" style="text-align: center; margin: 20px 0;">
-        <p>暂无项目文件 / No project files</p>
+        <p>No project files</p>
       </div>
       <div v-else>
         <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
           <a-button type="primary" @click="downloadAllFiles" :loading="downloadingFiles">
-            下载所有文件 / Download All Files
+            Download All Files
           </a-button>
           <a-button type="primary" @click="refreshFiles" :loading="refreshingFiles">
-            刷新文件列表 / Refresh Files
+            Refresh Files
           </a-button>
         </div>
         <a-timeline>
           <a-timeline-item 
             v-for="fileGroup in projectFiles" 
             :key="fileGroup.id"
-            :label="fileGroup.created_at ? new Date(fileGroup.created_at).toLocaleString() : '未知时间 / Unknown Time'"
+            :label="fileGroup.created_at ? new Date(fileGroup.created_at).toLocaleString() : 'Unknown Time'"
           >
             <template #dot>
               <icon-file />
@@ -32,7 +32,7 @@
                 :loading="fileGroup.deleting"
               >
                 <template #icon><icon-delete /></template>
-                删除整组 / Delete Group
+                Delete Group
               </a-button>
             </div>
             <p v-if="fileGroup.description">{{ fileGroup.description }}</p>
@@ -47,7 +47,7 @@
                 >
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                      <span>{{ file.name || file.filename || '未知文件 / Unknown File' }}</span>
+                      <span>{{ file.name || file.filename || 'Unknown File' }}</span>
                       <div v-if="file.created_at" style="font-size: 12px; color: #999;">
                         {{ new Date(file.created_at).toLocaleString() }}
                       </div>
@@ -61,7 +61,7 @@
                         style="margin-right: 8px;"
                       >
                         <template #icon><icon-download /></template>
-                        下载 / Download
+                        Download
                       </a-button>
                       <a-button 
                         type="primary" 
@@ -71,14 +71,14 @@
                         :loading="file.deleting"
                       >
                         <template #icon><icon-delete /></template>
-                        删除 / Delete
+                        Delete
                       </a-button>
                     </div>
                   </div>
                 </a-card>
               </template>
               <template v-else>
-                <p style="color: #999;">文件列表为空或格式不正确 / Empty or invalid file list</p>
+                <p style="color: #999;">Empty or invalid file list</p>
               </template>
             </a-space>
           </a-timeline-item>
@@ -89,21 +89,21 @@
     <!-- 上传文件对话框 -->
     <a-modal
       v-model:visible="uploadModalVisible"
-      title="上传项目文件 / Upload Project Files"
+      title="Upload Project Files"
       @ok="submitUploadFiles"
       @cancel="handleUploadCancel"
       :ok-loading="uploading"
     >
       <a-form :model="uploadForm">
-        <a-form-item field="fileType" label="文件类型 / File Type" required>
+        <a-form-item field="fileType" label="File Type" required>
           <a-select v-model="uploadForm.fileType">
-            <a-option value="source">源文件 / Source Files</a-option>
-            <a-option value="translation">翻译文件 / Translation Files</a-option>
-            <a-option value="lqa">LQA报告 / LQA Reports</a-option>
-            <a-option value="other">其他 / Other</a-option>
+            <a-option value="source">Source Files</a-option>
+            <a-option value="translation">Translation Files</a-option>
+            <a-option value="lqa">LQA Reports</a-option>
+            <a-option value="other">Other</a-option>
           </a-select>
         </a-form-item>
-        <a-form-item field="files" label="文件 / Files" required>
+        <a-form-item field="files" label="Files" required>
           <a-upload
             action="http://localhost:5000/api/upload"
             v-model:file-list="uploadedFiles"
@@ -115,23 +115,23 @@
             :show-remove-button="true"
             :custom-request="customRequest"
             :limit="5"
-            :tip="'支持单个文件最大10MB / Max 10MB per file'"
+            :tip="'Max 10MB per file'"
             :response-url-field="undefined"
           >
             <template #upload-button>
               <a-button type="primary">
-                选择文件 / Select Files
+                Select Files
               </a-button>
             </template>
           </a-upload>
           <div style="margin-top: 8px; color: #999;">
-            上传文件将会自动关联到当前项目 / Files will be automatically linked to the current project
+            Files will be automatically linked to the current project
           </div>
         </a-form-item>
-        <a-form-item field="notes" label="备注 / Notes">
+        <a-form-item field="notes" label="Notes">
           <a-textarea
             v-model="uploadForm.notes"
-            placeholder="文件备注 / File notes"
+            placeholder="File notes"
             :auto-size="{ minRows: 3, maxRows: 5 }"
           />
         </a-form-item>
@@ -330,7 +330,7 @@ const loadProjectFiles = async (projectId) => {
           // 确保所有必要字段
           const processedFile = {
             id: file.id || file.file_id || Math.random().toString(36).substr(2, 9),
-            name: file.name || file.originalName || file.filename || '未知文件',
+            name: file.name || file.originalName || file.filename || 'Unknown File',
             url: file.url || file.filePath || `/api/files/${file.filename || file.id}`,
             type: file.type || file.fileType || file.mimeType || 'unknown',
             created_at: file.created_at || file.uploadTime || new Date().toISOString(),
@@ -372,7 +372,7 @@ const loadProjectFiles = async (projectId) => {
 // 刷新文件列表
 const refreshFiles = async () => {
   if (!currentProjectId.value) {
-    Message.error('项目ID不存在，无法刷新文件列表 / Project ID does not exist, cannot refresh files');
+    Message.error('Project ID does not exist, cannot refresh files');
     return;
   }
   
@@ -396,7 +396,7 @@ const refreshFiles = async () => {
 const downloadFile = (url, fileName, fileObj) => {
   if (!url) {
     console.error('下载URL为空');
-    Message.error('下载链接不可用 / Download URL not available');
+    Message.error('Download URL not available');
     return;
   }
   
@@ -438,11 +438,11 @@ const downloadFile = (url, fileName, fileObj) => {
     link.click();
     document.body.removeChild(link);
     
-    Message.success(`文件 ${fileName} 下载成功 / File downloaded successfully`);
+    Message.success(`File ${fileName} downloaded successfully`);
   }).catch(error => {
     console.error('Error downloading file:', error);
     
-    let errorMessage = '下载文件失败 / Failed to download file';
+    let errorMessage = 'Failed to download file';
     if (error.response) {
       errorMessage += `: ${error.response.status} ${error.response.statusText}`;
     }
@@ -459,12 +459,12 @@ const downloadFile = (url, fileName, fileObj) => {
 // 下载所有文件
 const downloadAllFiles = async () => {
   if (!currentProjectId.value) {
-    Message.error('项目ID不存在，无法下载文件 / Project ID does not exist, cannot download files');
+    Message.error('Project ID does not exist, cannot download files');
     return;
   }
   
   if (projectFiles.value.length === 0) {
-    Message.info('项目没有可下载的文件 / No files available for download');
+    Message.info('No files available for download');
     return;
   }
   
@@ -485,7 +485,7 @@ const downloadAllFiles = async () => {
     });
     
     if (allFileIds.length === 0) {
-      Message.info('没有找到有效的文件ID / No valid file IDs found');
+      Message.info('No valid file IDs found');
       return;
     }
     
@@ -519,11 +519,11 @@ const downloadAllFiles = async () => {
       link.click();
       document.body.removeChild(link);
       
-      Message.success(`文件已下载成功 / Files downloaded successfully`);
+      Message.success(`Files downloaded successfully`);
     }).catch(error => {
       console.error('Error downloading files:', error);
       
-      let errorMessage = '下载文件失败 / Failed to download files';
+      let errorMessage = 'Failed to download files';
       if (error.response) {
         errorMessage += `: ${error.response.status} ${error.response.statusText}`;
       }
@@ -534,7 +534,7 @@ const downloadAllFiles = async () => {
     });
   } catch (error) {
     console.error('批量下载文件失败:', error);
-    Message.error('批量下载文件失败 / Failed to download files');
+    Message.error('Failed to download files');
     downloadingFiles.value = false;
   }
 };
@@ -575,8 +575,8 @@ const customRequest = (options) => {
       return;
     }
     
-    onError(new Error('文件对象不存在 / File object is missing'));
-    Message.error('文件对象不存在，无法上传 / File object is missing, cannot upload');
+    onError(new Error('File object is missing'));
+    Message.error('File object is missing, cannot upload');
     return;
   }
   
@@ -587,8 +587,8 @@ const customRequest = (options) => {
 const uploadFileToServer = (file, action, onProgress, onSuccess, onError) => {
   if (!file.name) {
     console.error('错误: 文件名不存在', file);
-    onError(new Error('文件名不存在 / File name is missing'));
-    Message.error('文件名不存在，无法上传 / File name is missing, cannot upload');
+    onError(new Error('File name is missing'));
+    Message.error('File name is missing, cannot upload');
     return;
   }
   
@@ -598,8 +598,8 @@ const uploadFileToServer = (file, action, onProgress, onSuccess, onError) => {
   const maxFileSize = 10 * 1024 * 1024; // 10 MB
   if (file.size > maxFileSize) {
     console.error('文件太大:', file.size, '最大允许:', maxFileSize);
-    onError(new Error(`文件太大，最大允许10MB / File too large, max 10MB allowed`));
-    Message.error(`文件太大，最大允许10MB / File too large, max 10MB allowed`);
+    onError(new Error(`File too large, max 10MB allowed`));
+    Message.error(`File too large, max 10MB allowed`);
     return;
   }
   
@@ -610,8 +610,8 @@ const uploadFileToServer = (file, action, onProgress, onSuccess, onError) => {
   const token = localStorage.getItem('token');
   if (!token) {
     console.error('未找到认证令牌');
-    onError(new Error('未找到认证令牌，请重新登录 / Authentication token not found, please login again'));
-    Message.error('未找到认证令牌，请重新登录 / Authentication token not found, please login again');
+    onError(new Error('Authentication token not found, please login again'));
+    Message.error('Authentication token not found, please login again');
     return;
   }
   
@@ -659,18 +659,18 @@ const uploadFileToServer = (file, action, onProgress, onSuccess, onError) => {
         status: 'done'
       });
       
-      Message.success(`文件 ${file.name} 上传成功 / File uploaded successfully`);
+      Message.success(`File ${file.name} uploaded successfully`);
     } else {
       // 没有接收到有效的响应数据
       console.error('上传响应数据无效:', response.data);
-      onError(new Error('服务器响应无效 / Invalid server response'));
-      Message.error('服务器响应无效 / Invalid server response');
+      onError(new Error('Invalid server response'));
+      Message.error('Invalid server response');
     }
   })
   .catch(error => {
     console.error('上传失败:', error);
     
-    let errorMessage = '上传失败 / Upload failed';
+    let errorMessage = 'Upload failed';
     if (error.response) {
       console.error('错误响应:', error.response.data);
       errorMessage += `: ${error.response.status} ${error.response.statusText || ''}`;
@@ -777,7 +777,7 @@ const processFileList = (fileList) => {
 const processFile = (file, updateList = true) => {
   if (!file) return null;
   
-  const fileName = file.name || '未知文件';
+  const fileName = file.name || 'Unknown File';
   console.log('处理文件:', fileName, '状态:', file.status);
   
   // 创建一个新的文件对象
@@ -817,7 +817,7 @@ const processFile = (file, updateList = true) => {
     console.log('文件上传完成:', fileName);
   } else if (file.status === 'error') {
     console.error('文件上传失败:', fileName);
-    Message.error(`文件 ${fileName} 上传失败`);
+    Message.error(`File ${fileName} uploaded failed`);
   } else if (file.status === 'uploading') {
     console.log('文件上传中:', fileName, `${file.percent || 0}%`);
   }
@@ -833,12 +833,12 @@ const processFile = (file, updateList = true) => {
 // 提交文件上传 - 进一步改进错误处理和文件状态检查
 const submitUploadFiles = async () => {
   if (!currentProjectId.value) {
-    Message.error('项目ID不存在，无法上传文件 / Project ID does not exist, cannot upload files');
+    Message.error('Project ID does not exist, cannot upload files');
     return;
   }
   
   if (!uploadedFiles.value || uploadedFiles.value.length === 0) {
-    Message.error('请至少上传一个文件 / Please upload at least one file');
+    Message.error('Please upload at least one file');
     return;
   }
   
@@ -849,7 +849,7 @@ const submitUploadFiles = async () => {
     
     // 安全检查：确保是数组
     if (!Array.isArray(uploadedFiles.value)) {
-      throw new Error('上传文件列表不是数组 / Uploaded files list is not an array');
+      throw new Error('Uploaded files list is not an array');
     }
     
     // 获取已上传文件的ID
@@ -863,19 +863,19 @@ const submitUploadFiles = async () => {
         return;
       }
       
-      const fileName = file.name || `未知文件-${index}`;
+      const fileName = file.name || `Unknown File-${index}`;
       console.log('检查上传文件:', fileName, '状态:', file.status);
       
       // 检查文件上传状态
       if (file.status === 'error') {
-        const errorMsg = `文件 ${fileName} 上传失败，无法继续处理`;
+        const errorMsg = `File ${fileName} uploaded failed, cannot continue processing`;
         console.warn(errorMsg);
         fileErrors.push(errorMsg);
         return; // 跳过失败的文件
       }
       
       if (!file.status || file.status !== 'done') {
-        const errorMsg = `文件 ${fileName} 上传未完成，状态: ${file.status || 'unknown'}`;
+        const errorMsg = `File ${fileName} uploaded not completed, status: ${file.status || 'unknown'}`;
         console.warn(errorMsg);
         fileErrors.push(errorMsg);
         return; // 跳过未完成的文件
@@ -905,7 +905,7 @@ const submitUploadFiles = async () => {
         uploadedFileIds.push(fileId);
       } else {
         console.warn('无法找到文件ID，使用文件名关联:', fileName);
-        fileErrors.push(`无法找到文件 ${fileName} 的ID`);
+        fileErrors.push(`Cannot find ID for file ${fileName}`);
         // 检查是否可以使用文件名关联
         if (file.status === 'done' && fileName) {
           uploadedFileIds.push({ filename: fileName });
@@ -916,9 +916,9 @@ const submitUploadFiles = async () => {
     // 如果没有成功上传的文件ID，则报错
     if (uploadedFileIds.length === 0) {
       if (fileErrors.length > 0) {
-        throw new Error(`文件上传问题: ${fileErrors.join('; ')}`);
+        throw new Error(`File upload problem: ${fileErrors.join('; ')}`);
       } else {
-        throw new Error('没有成功上传的文件ID / No successfully uploaded file IDs');
+        throw new Error('No successfully uploaded file IDs');
       }
     }
     
@@ -937,7 +937,7 @@ const submitUploadFiles = async () => {
     // 发送项目文件请求
     const token = localStorage.getItem('token');
     if (!token) {
-      throw new Error('令牌不存在，请重新登录 / Token does not exist, please login again');
+      throw new Error('Token does not exist, please login again');
     }
     
     try {
@@ -950,7 +950,7 @@ const submitUploadFiles = async () => {
       
       console.log('创建项目文件响应:', response.data);
       
-      Message.success('项目文件上传成功 / Project files uploaded successfully');
+      Message.success('Project files uploaded successfully');
       uploadModalVisible.value = false;
       uploadedFiles.value = []; // 清空已上传文件列表
       
@@ -976,7 +976,7 @@ const submitUploadFiles = async () => {
       }
     } catch (error) {
       console.error('创建项目文件失败:', error);
-      let errorMessage = '创建项目文件失败 / Failed to create project files';
+      let errorMessage = 'Failed to create project files';
       
       if (error.response) {
         console.error('服务器响应:', error.response.data);
@@ -994,7 +994,7 @@ const submitUploadFiles = async () => {
     }
   } catch (error) {
     console.error('上传项目文件失败:', error);
-    Message.error(error.message || '上传失败 / Upload failed');
+    Message.error(error.message || 'Upload failed');
   } finally {
     uploading.value = false;
   }
@@ -1008,7 +1008,7 @@ const fixFileMappings = async (silentMode = false) => {
     const token = localStorage.getItem('token');
     if (!token) {
       if (!silentMode) {
-        Message.error('请先登录 / Please login first');
+        Message.error('Please login first');
       }
       return;
     }
@@ -1061,7 +1061,7 @@ const fixFileMappings = async (silentMode = false) => {
       
       if (!silentMode && newMappings > 0) {
         Message.success({
-          content: `文件映射已自动修复! 新增 ${newMappings} 个映射 / File mappings fixed! Added ${newMappings} mappings`,
+          content: `File mappings fixed! Added ${newMappings} mappings`,
           duration: 3000
         });
       }
@@ -1076,7 +1076,7 @@ const fixFileMappings = async (silentMode = false) => {
     console.error('修复文件映射失败:', error);
     
     if (!silentMode) {
-      let errorMessage = '修复文件映射失败 / Failed to fix file mappings';
+      let errorMessage = 'Failed to fix file mappings';
       if (error.response) {
         errorMessage += `: ${error.response.data?.error || error.response.statusText}`;
       } else if (error.message) {
@@ -1102,12 +1102,12 @@ const openUploadModal = (projectIdOrProject) => {
     projectId = projectIdOrProject.id;
   } else {
     console.error('无效的项目ID或项目对象:', projectIdOrProject);
-    Message.error('无效的项目ID，无法上传文件 / Invalid project ID, cannot upload files');
+    Message.error('Invalid project ID, cannot upload files');
     return;
   }
   
   if (!projectId) {
-    Message.error('项目ID为空，无法上传文件 / Project ID is empty, cannot upload files');
+    Message.error('Project ID is empty, cannot upload files');
     return;
   }
   
@@ -1133,10 +1133,10 @@ const confirmDeleteFile = (file, fileGroup) => {
   fileGroupToDeleteFrom.value = fileGroup;
   
   Modal.warning({
-    title: '确认删除文件 / Confirm File Deletion',
-    content: `您确定要删除文件 "${file.name || file.filename || '未知文件'}" 吗？此操作不可撤销。/ Are you sure you want to delete the file "${file.name || file.filename || 'Unknown File'}"? This action cannot be undone.`,
-    okText: '删除 / Delete',
-    cancelText: '取消 / Cancel',
+    title: 'Confirm File Deletion',
+    content: `Are you sure you want to delete the file "${file.name || file.filename || 'Unknown File'}"? This action cannot be undone.`,
+    okText: 'Delete',
+    cancelText: 'Cancel',
     onOk: () => deleteFile(file, fileGroup)
   });
 };
@@ -1144,7 +1144,7 @@ const confirmDeleteFile = (file, fileGroup) => {
 // 删除文件
 const deleteFile = async (file, fileGroup) => {
   if (!file || !file.id) {
-    Message.error('文件ID不存在，无法删除 / File ID does not exist, cannot delete');
+    Message.error('File ID does not exist, cannot delete');
     return;
   }
   
@@ -1155,7 +1155,7 @@ const deleteFile = async (file, fileGroup) => {
     // 获取token
     const token = localStorage.getItem('token');
     if (!token) {
-      throw new Error('未找到认证令牌，请重新登录 / Authentication token not found, please login again');
+      throw new Error('Authentication token not found, please login again');
     }
     
     console.log(`开始删除文件，ID: ${file.id}, 名称: ${file.name || file.filename}`);
@@ -1183,20 +1183,20 @@ const deleteFile = async (file, fileGroup) => {
       }
     }
     
-    Message.success(`文件 ${file.name || file.filename} 已成功删除 / File deleted successfully`);
+    Message.success(`File ${file.name || file.filename} deleted successfully`);
     
     // 通知父组件文件已更新
     emit('refresh-files');
   } catch (error) {
     console.error('删除文件失败:', error);
     
-    let errorMessage = '删除文件失败 / Failed to delete file';
+    let errorMessage = 'Failed to delete file';
     if (error.response) {
       const status = error.response.status;
       if (status === 403) {
-        errorMessage = '您没有权限删除此文件 / You do not have permission to delete this file';
+        errorMessage = 'You do not have permission to delete this file';
       } else if (status === 404) {
-        errorMessage = '文件不存在或已被删除 / File does not exist or has been deleted';
+        errorMessage = 'File does not exist or has been deleted';
       } else if (error.response.data && error.response.data.error) {
         errorMessage += `: ${error.response.data.error}`;
       }
@@ -1216,20 +1216,20 @@ const deleteFile = async (file, fileGroup) => {
 // 确认删除文件组
 const confirmDeleteFileGroup = (fileGroup) => {
   if (!fileGroup || !fileGroup.id) {
-    Message.error('文件组ID不存在，无法删除 / File group ID does not exist, cannot delete');
+    Message.error('File group ID does not exist, cannot delete');
     return;
   }
   
   if (!fileGroup.fileList || fileGroup.fileList.length === 0) {
-    Message.warning('文件组为空，无需删除 / File group is empty, no need to delete');
+    Message.warning('File group is empty, no need to delete');
     return;
   }
   
   Modal.warning({
-    title: '确认删除整组文件 / Confirm File Group Deletion',
-    content: `您确定要删除整组文件吗？此操作将删除该组中的所有 ${fileGroup.fileList.length} 个文件，且不可撤销。/ Are you sure you want to delete the entire file group? This will delete all ${fileGroup.fileList.length} files in this group and cannot be undone.`,
-    okText: '删除 / Delete',
-    cancelText: '取消 / Cancel',
+    title: 'Confirm File Group Deletion',
+    content: `Are you sure you want to delete this file group? This will delete all files in the group. This action cannot be undone.`,
+    okText: 'Delete',
+    cancelText: 'Cancel',
     onOk: () => deleteFileGroup(fileGroup)
   });
 };
@@ -1237,7 +1237,7 @@ const confirmDeleteFileGroup = (fileGroup) => {
 // 删除整个文件组
 const deleteFileGroup = async (fileGroup) => {
   if (!fileGroup || !fileGroup.id || !fileGroup.fileList) {
-    Message.error('文件组无效，无法删除 / Invalid file group, cannot delete');
+    Message.error('Invalid file group, cannot delete');
     return;
   }
   
@@ -1248,7 +1248,7 @@ const deleteFileGroup = async (fileGroup) => {
     // 获取token
     const token = localStorage.getItem('token');
     if (!token) {
-      throw new Error('未找到认证令牌，请重新登录 / Authentication token not found, please login again');
+      throw new Error('Authentication token not found, please login again');
     }
     
     console.log(`开始删除文件组，ID: ${fileGroup.id}, 包含 ${fileGroup.fileList.length} 个文件`);
@@ -1257,7 +1257,7 @@ const deleteFileGroup = async (fileGroup) => {
     const fileIds = fileGroup.fileList.map(file => file.id).filter(Boolean);
     
     if (fileIds.length === 0) {
-      throw new Error('没有找到有效的文件ID / No valid file IDs found');
+      throw new Error('No valid file IDs found');
     }
     
     // 批量删除文件
@@ -1277,14 +1277,14 @@ const deleteFileGroup = async (fileGroup) => {
       projectFiles.value.splice(groupIndex, 1);
     }
     
-    Message.success(`文件组已成功删除，共 ${fileIds.length} 个文件 / File group deleted successfully, total ${fileIds.length} files`);
+    Message.success(`File group deleted successfully, total ${fileIds.length} files`);
     
     // 通知父组件文件已更新
     emit('refresh-files');
   } catch (error) {
     console.error('删除文件组失败:', error);
     
-    let errorMessage = '删除文件组失败 / Failed to delete file group';
+    let errorMessage = 'Failed to delete file group';
     if (error.response) {
       if (error.response.data && error.response.data.error) {
         errorMessage += `: ${error.response.data.error}`;

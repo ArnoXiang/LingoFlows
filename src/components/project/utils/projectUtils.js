@@ -25,12 +25,12 @@ export const getStatusColor = (status) => {
  */
 export const getStatusText = (status) => {
   const statusMap = {
-    pending: '待处理 / Pending',
-    in_progress: '进行中 / In Progress',
-    completed: '已完成 / Completed',
-    cancelled: '已取消 / Cancelled',
+    pending: 'Pending',
+    in_progress: 'In Progress',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
   };
-  return statusMap[status] || '未知 / Unknown';
+  return statusMap[status] || 'Unknown';
 };
 
 /**
@@ -68,11 +68,11 @@ export const getTaskStatus = (taskStatus) => {
  */
 export const getTaskText = (taskStatus) => {
   const textMap = {
-    not_started: '未开始 / Not Started',
-    in_progress: '进行中 / In Progress',
-    completed: '已完成 / Completed',
+    not_started: 'Not Started',
+    in_progress: 'In Progress',
+    completed: 'Completed',
   };
-  return textMap[taskStatus] || '未知 / Unknown';
+  return textMap[taskStatus] || 'Unknown';
 };
 
 /**
@@ -82,8 +82,8 @@ export const getTaskText = (taskStatus) => {
  */
 export const getRequirementText = (requirement) => {
   const requirementMap = {
-    lqa: '语言质量保证 (LQA) / Linguistic Quality Assurance',
-    imageTranslation: '图像文本翻译 / Image Text Translation',
+    lqa: 'Linguistic Quality Assurance',
+    imageTranslation: 'Image Text Translation',
   };
   return requirementMap[requirement] || requirement;
 };
@@ -94,9 +94,9 @@ export const getRequirementText = (requirement) => {
  * @returns {string} 语言名称
  */
 export const getLanguageName = (code) => {
-  if (!code) return '未指定 / Not specified';
+  if (!code) return 'Not specified';
   const language = languages.find(lang => lang.code === code);
-  return language ? language.name : code;
+  return language ? language.name.replace(/^.*? \/ /, '') : code;
 };
 
 /**
@@ -105,7 +105,7 @@ export const getLanguageName = (code) => {
  * @returns {string} 格式化后的日期字符串
  */
 export const formatDate = (dateString) => {
-  if (!dateString) return '未设置 / Not set';
+  if (!dateString) return 'Not set';
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return dateString; // 如果无法解析，则返回原始字符串
@@ -196,6 +196,10 @@ export const processProject = (project) => {
     }
   }
   
+  // 确保status和projectStatus同步
+  const projectStatus = project.projectStatus || project.status || 'pending';
+  const status = project.status || project.projectStatus || 'pending';
+  
   // 返回处理后的项目对象
   return {
     ...project,
@@ -205,6 +209,9 @@ export const processProject = (project) => {
     additionalRequirements,
     expectedDeliveryDate,
     createTime,
+    // 同时提供status和projectStatus
+    status,
+    projectStatus,
     // 确保任务状态字段存在
     taskTranslation: project.taskTranslation || 'not_started',
     taskLQA: project.taskLQA || 'not_started',
@@ -373,24 +380,30 @@ export const getScheduleData = (project) => {
     }
   }
   
-  // 获取项目的交付日期
+  // 获取项目的交付日期（作为备用）
   const deliveryDate = safeDateFormat(getProjectValue('expectedDeliveryDate'));
+  
+  // 获取各任务的截止日期
+  const translationDeadline = safeDateFormat(getProjectValue('translationDeadline')) || deliveryDate;
+  const lqaDeadline = safeDateFormat(getProjectValue('lqaDeadline')) || deliveryDate;
+  const translationUpdateDeadline = safeDateFormat(getProjectValue('translationUpdateDeadline')) || deliveryDate;
+  const lqaReportFinalizationDeadline = safeDateFormat(getProjectValue('lqaReportFinalizationDeadline')) || deliveryDate;
   
   // 根据是否有LQA返回不同的数据结构
   if (hasLQA) {
     // 包含LQA的4行表格
     return [
-      { task: 'Translation', deadline: safeDateFormat(deliveryDate), owner: 'Translation Vendor' },
-      { task: 'LQA', deadline: safeDateFormat(deliveryDate), owner: 'LQA Vendor' },
-      { task: 'Translation Update', deadline: safeDateFormat(deliveryDate), owner: 'Translation Vendor' },
-      { task: 'LQA Report Finalization', deadline: safeDateFormat(deliveryDate), owner: 'LQA Vendor' }
+      { task: 'Translation', deadline: translationDeadline, owner: getProjectValue('translationAssignee', 'Translation Vendor') },
+      { task: 'LQA', deadline: lqaDeadline, owner: getProjectValue('lqaAssignee', 'LQA Vendor') },
+      { task: 'Translation Update', deadline: translationUpdateDeadline, owner: getProjectValue('translationUpdateAssignee', 'Translation Vendor') },
+      { task: 'LQA Report Finalization', deadline: lqaReportFinalizationDeadline, owner: getProjectValue('lqaReportFinalizationAssignee', 'LQA Vendor') }
     ];
   } else {
     // 不包含LQA的3行表格
     return [
-      { task: 'Translation', deadline: safeDateFormat(deliveryDate), owner: 'Translation Vendor' },
-      { task: 'Review', deadline: safeDateFormat(deliveryDate), owner: 'Internal Reviewer' },
-      { task: 'Final Delivery', deadline: safeDateFormat(deliveryDate), owner: 'Translation Vendor' }
+      { task: 'Translation', deadline: translationDeadline, owner: getProjectValue('translationAssignee', 'Translation Vendor') },
+      { task: 'Review', deadline: deliveryDate, owner: 'Internal Reviewer' },
+      { task: 'Final Delivery', deadline: deliveryDate, owner: getProjectValue('translationAssignee', 'Translation Vendor') }
     ];
   }
 }; 

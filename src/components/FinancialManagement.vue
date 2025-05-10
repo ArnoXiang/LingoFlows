@@ -1,6 +1,6 @@
 <template>
   <div class="financial-management-container">
-    <h2>财务管理 / Financial Management</h2>
+    <h2>Financial Management</h2>
     
     <!-- 只有FT用户可以访问财务管理 -->
     <div v-if="userRole === 'FT'">
@@ -8,25 +8,25 @@
       <div class="action-bar">
         <a-input-search
           v-model="searchKeyword"
-          placeholder="搜索项目 / Search projects"
+          placeholder="Search projects"
           style="width: 300px; margin-right: 16px;"
           @search="handleSearch"
         />
         <a-select
           v-model="statusFilter"
-          placeholder="项目状态 / Project Status"
+          placeholder="Project Status"
           style="width: 200px; margin-right: 16px;"
           allow-clear
           @change="handleStatusChange"
         >
-          <a-option value="all">全部 / All</a-option>
-          <a-option value="pending">待处理 / Pending</a-option>
-          <a-option value="in_progress">进行中 / In Progress</a-option>
-          <a-option value="completed">已完成 / Completed</a-option>
-          <a-option value="cancelled">已取消 / Cancelled</a-option>
+          <a-option value="all">All</a-option>
+          <a-option value="pending">Pending</a-option>
+          <a-option value="in_progress">In Progress</a-option>
+          <a-option value="completed">Completed</a-option>
+          <a-option value="cancelled">Cancelled</a-option>
         </a-select>
         <a-button type="primary" @click="refreshProjects">
-          刷新列表 / Refresh List
+          Refresh List
         </a-button>
       </div>
       
@@ -46,12 +46,12 @@
         <!-- 空状态提示 -->
         <template #empty>
           <div style="text-align: center; padding: 20px;">
-            <a-empty description="暂无项目数据 / No project data available">
+            <a-empty description="No project data available">
               <template #image>
                 <icon-file style="font-size: 48px; color: #c2c7d0;" />
               </template>
               <a-button type="primary" @click="refreshProjects">
-                刷新 / Refresh
+                Refresh
               </a-button>
             </a-empty>
           </div>
@@ -111,13 +111,13 @@
         <template #operations="{ record }">
           <a-space>
             <a-button type="text" size="small" @click="onViewProject(record)">
-              查看 / View
+              View
             </a-button>
             <a-button type="text" size="small" @click="onUploadQuote(record)">
-              报价录入 / Quote
+              Quote
             </a-button>
             <a-button type="text" size="small" @click="onExportQuote(record)">
-              导出报价 / Export
+              Export
             </a-button>
           </a-space>
         </template>
@@ -126,7 +126,7 @@
       <!-- 项目详情抽屉 -->
       <a-drawer
         v-model:visible="projectDetailVisible"
-        :title="currentProject ? `项目详情: ${currentProject.projectName}` : '项目详情 / Project Details'"
+        :title="currentProject ? `Project Details: ${currentProject.projectName}` : 'Project Details'"
         :width="drawerWidth"
         unmount-on-close
       >
@@ -135,23 +135,23 @@
           class="drawer-resize-handle" 
           v-if="projectDetailVisible"
           @mousedown="startResize"
-          title="拖拽调整宽度 / Drag to resize"
+          title="Drag to resize"
         >
           <div class="resize-indicator"></div>
         </div>
         <div v-if="currentProject" class="project-detail">
-          <a-descriptions :column="1" bordered size="small" title="基本信息 / Basic Information">
-            <a-descriptions-item label="项目名称 / Project Name">{{ currentProject.projectName }}</a-descriptions-item>
-            <a-descriptions-item label="项目状态 / Project Status">
+          <a-descriptions :column="1" bordered size="small" title="Basic Information">
+            <a-descriptions-item label="Project Name">{{ currentProject.projectName }}</a-descriptions-item>
+            <a-descriptions-item label="Project Status">
               <a-tag :color="getStatusColor(currentProject.projectStatus)">
                 {{ getStatusText(currentProject.projectStatus) }}
               </a-tag>
             </a-descriptions-item>
-            <a-descriptions-item label="请求名称 / Request Name">{{ currentProject.requestName }}</a-descriptions-item>
-            <a-descriptions-item label="项目经理 / Project Manager">{{ currentProject.projectManager }}</a-descriptions-item>
-            <a-descriptions-item label="创建时间 / Create Time">{{ formatDate(currentProject.createTime) }}</a-descriptions-item>
-            <a-descriptions-item label="源语言 / Source Language">{{ getLanguageName(currentProject.sourceLanguage) }}</a-descriptions-item>
-            <a-descriptions-item label="目标语言 / Target Languages">
+            <a-descriptions-item label="Request Name">{{ currentProject.requestName }}</a-descriptions-item>
+            <a-descriptions-item label="Project Manager">{{ currentProject.projectManager }}</a-descriptions-item>
+            <a-descriptions-item label="Create Time">{{ formatDate(currentProject.createTime) }}</a-descriptions-item>
+            <a-descriptions-item label="Source Language">{{ getLanguageName(currentProject.sourceLanguage) }}</a-descriptions-item>
+            <a-descriptions-item label="Target Languages">
               <template v-if="Array.isArray(currentProject.targetLanguages) && currentProject.targetLanguages.length > 0">
                 <a-space>
                   <a-tag v-for="lang in currentProject.targetLanguages" :key="lang">
@@ -159,17 +159,17 @@
                   </a-tag>
                 </a-space>
               </template>
-              <span v-else>无 / None</span>
+              <span v-else>None</span>
             </a-descriptions-item>
-            <a-descriptions-item label="字数 / Word Count">{{ currentProject.wordCount }}</a-descriptions-item>
-            <a-descriptions-item label="预期交付日期 / Expected Delivery Date">{{ formatDate(currentProject.expectedDeliveryDate) }}</a-descriptions-item>
+            <a-descriptions-item label="Word Count">{{ currentProject.wordCount }}</a-descriptions-item>
+            <a-descriptions-item label="Expected Delivery Date">{{ formatDate(currentProject.expectedDeliveryDate) }}</a-descriptions-item>
           </a-descriptions>
           
           <a-divider />
           
-          <a-descriptions :column="1" bordered size="small" title="任务信息 / Task Information">
+          <a-descriptions :column="1" bordered size="small" title="Task Information">
             <!-- 翻译任务 -->
-            <a-descriptions-item label="翻译任务 / Translation Task">
+            <a-descriptions-item label="Translation Task">
               <div class="task-info">
                 <div class="task-progress">
                   <a-progress
@@ -180,21 +180,21 @@
                   />
                 </div>
                 <div class="task-detail">
-                  <div><strong>任务状态 / Status:</strong> {{ getTaskText(currentProject.taskTranslation) }}</div>
-                  <div><strong>负责人 / Assignee:</strong> {{ currentProject.translationAssignee || '未分配 / Not assigned' }}</div>
-                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(currentProject.translationDeadline) }}</div>
-                  <div><strong>备注 / Notes:</strong> {{ currentProject.translationNotes || '无 / None' }}</div>
+                  <div><strong>Status:</strong> {{ getTaskText(currentProject.taskTranslation) }}</div>
+                  <div><strong>Assignee:</strong> {{ currentProject.translationAssignee || 'Not assigned' }}</div>
+                  <div><strong>Deadline:</strong> {{ formatDate(currentProject.translationDeadline) }}</div>
+                  <div><strong>Notes:</strong> {{ currentProject.translationNotes || 'None' }}</div>
                 </div>
                 <!-- 报价信息 -->
                 <div v-if="taskQuotes.translation.quotes.length > 0" class="quote-info">
-                  <div class="quote-header">报价信息 / Quote Information</div>
+                  <div class="quote-header">Quote Information</div>
                   <TaskQuoteDisplay :quotes="taskQuotes.translation.quotes" />
                 </div>
               </div>
             </a-descriptions-item>
             
             <!-- LQA任务 -->
-            <a-descriptions-item label="LQA任务 / LQA Task">
+            <a-descriptions-item label="LQA Task">
               <div class="task-info">
                 <div class="task-progress">
                   <a-progress
@@ -205,21 +205,21 @@
                   />
                 </div>
                 <div class="task-detail">
-                  <div><strong>任务状态 / Status:</strong> {{ getTaskText(currentProject.taskLQA) }}</div>
-                  <div><strong>负责人 / Assignee:</strong> {{ currentProject.lqaAssignee || '未分配 / Not assigned' }}</div>
-                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(currentProject.lqaDeadline) }}</div>
-                  <div><strong>备注 / Notes:</strong> {{ currentProject.lqaNotes || '无 / None' }}</div>
+                  <div><strong>Status:</strong> {{ getTaskText(currentProject.taskLQA) }}</div>
+                  <div><strong>Assignee:</strong> {{ currentProject.lqaAssignee || 'Not assigned' }}</div>
+                  <div><strong>Deadline:</strong> {{ formatDate(currentProject.lqaDeadline) }}</div>
+                  <div><strong>Notes:</strong> {{ currentProject.lqaNotes || 'None' }}</div>
                 </div>
                 <!-- 报价信息 -->
                 <div v-if="taskQuotes.lqa.quotes.length > 0" class="quote-info">
-                  <div class="quote-header">报价信息 / Quote Information</div>
+                  <div class="quote-header">Quote Information</div>
                   <TaskQuoteDisplay :quotes="taskQuotes.lqa.quotes" />
                 </div>
               </div>
             </a-descriptions-item>
             
             <!-- 翻译更新 -->
-            <a-descriptions-item label="翻译更新 / Translation Update">
+            <a-descriptions-item label="Translation Update">
               <div class="task-info">
                 <div class="task-progress">
                   <a-progress
@@ -230,21 +230,21 @@
                   />
                 </div>
                 <div class="task-detail">
-                  <div><strong>任务状态 / Status:</strong> {{ getTaskText(currentProject.taskTranslationUpdate) }}</div>
-                  <div><strong>负责人 / Assignee:</strong> {{ currentProject.translationUpdateAssignee || '未分配 / Not assigned' }}</div>
-                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(currentProject.translationUpdateDeadline) }}</div>
-                  <div><strong>备注 / Notes:</strong> {{ currentProject.translationUpdateNotes || '无 / None' }}</div>
+                  <div><strong>Status:</strong> {{ getTaskText(currentProject.taskTranslationUpdate) }}</div>
+                  <div><strong>Assignee:</strong> {{ currentProject.translationUpdateAssignee || 'Not assigned' }}</div>
+                  <div><strong>Deadline:</strong> {{ formatDate(currentProject.translationUpdateDeadline) }}</div>
+                  <div><strong>Notes:</strong> {{ currentProject.translationUpdateNotes || 'None' }}</div>
                 </div>
                 <!-- 报价信息 -->
                 <div v-if="taskQuotes.translationUpdate.quotes.length > 0" class="quote-info">
-                  <div class="quote-header">报价信息 / Quote Information</div>
+                  <div class="quote-header">Quote Information</div>
                   <TaskQuoteDisplay :quotes="taskQuotes.translationUpdate.quotes" />
                 </div>
               </div>
             </a-descriptions-item>
             
             <!-- LQA报告定稿 -->
-            <a-descriptions-item label="LQA报告定稿 / LQA Report Finalization">
+            <a-descriptions-item label="LQA Report Finalization">
               <div class="task-info">
                 <div class="task-progress">
                   <a-progress
@@ -255,14 +255,14 @@
                   />
                 </div>
                 <div class="task-detail">
-                  <div><strong>任务状态 / Status:</strong> {{ getTaskText(currentProject.taskLQAReportFinalization) }}</div>
-                  <div><strong>负责人 / Assignee:</strong> {{ currentProject.lqaReportFinalizationAssignee || '未分配 / Not assigned' }}</div>
-                  <div><strong>截止日期 / Deadline:</strong> {{ formatDate(currentProject.lqaReportFinalizationDeadline) }}</div>
-                  <div><strong>备注 / Notes:</strong> {{ currentProject.lqaReportFinalizationNotes || '无 / None' }}</div>
+                  <div><strong>Status:</strong> {{ getTaskText(currentProject.taskLQAReportFinalization) }}</div>
+                  <div><strong>Assignee:</strong> {{ currentProject.lqaReportFinalizationAssignee || 'Not assigned' }}</div>
+                  <div><strong>Deadline:</strong> {{ formatDate(currentProject.lqaReportFinalizationDeadline) }}</div>
+                  <div><strong>Notes:</strong> {{ currentProject.lqaReportFinalizationNotes || 'None' }}</div>
                 </div>
                 <!-- 报价信息 -->
                 <div v-if="taskQuotes.lqaReportFinalization.quotes.length > 0" class="quote-info">
-                  <div class="quote-header">报价信息 / Quote Information</div>
+                  <div class="quote-header">Quote Information</div>
                   <TaskQuoteDisplay :quotes="taskQuotes.lqaReportFinalization.quotes" />
                 </div>
               </div>
@@ -287,11 +287,11 @@
     <div v-else class="no-permission">
       <a-result
         status="403"
-        title="无权访问 / Access Denied"
-        subtitle="只有财务团队成员可以访问此页面 / Only Financial Team members can access this page"
+        title="Access Denied"
+        sub-title="Sorry, you are not authorized to access this page."
       >
         <template #extra>
-          <a-button type="primary">返回首页 / Back to Home</a-button>
+          <a-button key="back" type="primary">Back to Home</a-button>
         </template>
       </a-result>
     </div>
@@ -332,14 +332,14 @@ const props = defineProps({
 // 表格列定义
 const columns = [
   {
-    title: '项目名称 / Project Name',
+    title: 'Project Name',
     dataIndex: 'projectName',
     key: 'projectName',
     sortable: true,
     resizable: true,
   },
   {
-    title: '项目状态 / Project Status',
+    title: 'Project Status',
     dataIndex: 'projectStatus',
     key: 'projectStatus',
     slotName: 'projectStatus',
@@ -347,55 +347,55 @@ const columns = [
     resizable: true,
   },
   {
-    title: '请求名称 / Request Name',
+    title: 'Request Name',
     dataIndex: 'requestName',
     key: 'requestName',
     resizable: true,
   },
   {
-    title: '项目经理 / Project Manager',
+    title: 'Project Manager',
     dataIndex: 'projectManager',
     key: 'projectManager',
     sortable: true,
     resizable: true,
   },
   {
-    title: '创建时间 / Create Time',
+    title: 'Create Time',
     dataIndex: 'createTime',
     key: 'createTime',
     sortable: true,
     resizable: true,
   },
   {
-    title: '翻译任务 / Translation Task',
+    title: 'Translation Task',
     dataIndex: 'taskTranslation',
     key: 'taskTranslation',
     slotName: 'taskTranslation',
     resizable: true,
   },
   {
-    title: 'LQA任务 / LQA Task',
+    title: 'LQA Task',
     dataIndex: 'taskLQA',
     key: 'taskLQA',
     slotName: 'taskLQA',
     resizable: true,
   },
   {
-    title: '翻译更新 / Translation Update',
+    title: 'Translation Update',
     dataIndex: 'taskTranslationUpdate',
     key: 'taskTranslationUpdate',
     slotName: 'taskTranslationUpdate',
     resizable: true,
   },
   {
-    title: 'LQA报告定稿 / LQA Report Finalization',
+    title: 'LQA Report Finalization',
     dataIndex: 'taskLQAReportFinalization',
     key: 'taskLQAReportFinalization',
     slotName: 'taskLQAReportFinalization',
     resizable: true,
   },
   {
-    title: '操作 / Operations',
+    title: 'Operations',
     slotName: 'operations',
     width: 200,
     resizable: true,
@@ -896,28 +896,28 @@ const exportQuoteToExcelFrontend = async (project) => {
     const sheetData = [];
     
     // 添加项目基本信息作为头部
-    sheetData.push([`项目名称 / Project Name: ${project.projectName}`]);
-    sheetData.push([`项目状态 / Project Status: ${getStatusText(project.projectStatus)}`]);
-    sheetData.push([`请求名称 / Request Name: ${project.requestName || 'N/A'}`]);
-    sheetData.push([`项目经理 / Project Manager: ${project.projectManager || 'N/A'}`]);
-    sheetData.push([`创建时间 / Create Time: ${formatDate(project.createTime)}`]);
-    sheetData.push([`语言 / Language: ${getLanguageName(language)}`]);
-    sheetData.push([`字数 / Word Count: ${project.wordCount || 0}`]);
-    sheetData.push([`预期交付日期 / Expected Delivery Date: ${formatDate(project.expectedDeliveryDate)}`]);
+    sheetData.push([`Project Name: ${project.projectName}`]);
+    sheetData.push([`Project Status: ${getStatusText(project.projectStatus)}`]);
+    sheetData.push([`Request Name: ${project.requestName || 'N/A'}`]);
+    sheetData.push([`Project Manager: ${project.projectManager || 'N/A'}`]);
+    sheetData.push([`Create Time: ${formatDate(project.createTime)}`]);
+    sheetData.push([`Language: ${getLanguageName(language)}`]);
+    sheetData.push([`Word Count: ${project.wordCount || 0}`]);
+    sheetData.push([`Expected Delivery Date: ${formatDate(project.expectedDeliveryDate)}`]);
     sheetData.push([]);  // 空行
     
     // 添加报价表头
     sheetData.push([
-      '任务类型 / Task Type',
-      '任务负责人 / Assignee',
-      '语言 / Language',
-      '报价金额 / Quote Amount',
-      '货币 / Currency',
-      '字数 / Word Count',
-      '单价 / Unit Price',
-      '截止日期 / Deadline',
-      '状态 / Status',
-      '备注 / Notes'
+      'Task Type',
+      'Assignee',
+      'Language',
+      'Quote Amount',
+      'Currency',
+      'Word Count',
+      'Unit Price',
+      'Deadline',
+      'Status',
+      'Notes'
     ]);
     
     // 筛选该语言的报价数据
@@ -936,10 +936,10 @@ const exportQuoteToExcelFrontend = async (project) => {
     // 添加报价数据行
     filteredQuotes.forEach(quote => {
       const taskTypeName = {
-        'translation': '翻译任务 / Translation',
-        'lqa': 'LQA任务 / LQA',
-        'translationUpdate': '翻译更新 / Translation Update',
-        'lqaReportFinalization': 'LQA报告定稿 / LQA Report Finalization'
+        'translation': 'Translation',
+        'lqa': 'LQA',
+        'translationUpdate': 'Translation Update',
+        'lqaReportFinalization': 'LQA Report Finalization'
       }[quote.taskType] || quote.taskType;
       
       sheetData.push([

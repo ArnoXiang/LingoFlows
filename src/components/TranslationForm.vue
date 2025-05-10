@@ -3,11 +3,11 @@
     <div class="language-selectors">
       <a-select 
         v-model="sourceLang"
-        placeholder="源语言"
+        placeholder="Source Language"
         :style="{ width: '200px' }"
         allow-clear
       >
-        <a-option value="auto">自动检测</a-option>
+        <a-option value="auto">Auto Detect</a-option>
         <a-option 
           v-for="lang in languages"
           :key="lang.code"
@@ -23,7 +23,7 @@
 
       <a-select
         v-model="targetLang"
-        placeholder="目标语言"
+        placeholder="Target Language"
         :style="{ width: '200px' }"
         allow-clear
       >
@@ -40,7 +40,7 @@
     <div class="translation-area">
       <a-textarea
         v-model="sourceText"
-        placeholder="输入要翻译的文本"
+        placeholder="Enter text to translate"
         :auto-size="{ minRows: 5, maxRows: 10 }"
       />
       <a-button 
@@ -48,11 +48,11 @@
         @click="handleTranslate"
         :loading="loading"
       >
-        翻译
+        Translate
       </a-button>
       <a-textarea
         v-model="translatedText"
-        placeholder="翻译结果"
+        placeholder="Translation result"
         :auto-size="{ minRows: 5, maxRows: 10 }"
         readonly
       />
@@ -60,7 +60,7 @@
 
     <!-- 翻译历史 -->
     <div v-if="history.length" class="translation-history">
-      <h3>翻译历史</h3>
+      <h3>Translation History</h3>
       <div 
         v-for="(item, index) in history"
         :key="index"
@@ -87,7 +87,7 @@ const loading = ref(false);
 const history = ref([]); // 直接初始化为空数组，不再使用 localStorage
 
 const languageOptions = computed(() => [
-  { code: 'auto', name: '自动检测' },
+  { code: 'auto', name: 'Auto Detect' },
   ...languages
 ]);
 
@@ -100,7 +100,7 @@ const swapLanguages = () => {
 
 const handleTranslate = async () => {
   if (!sourceText.value.trim()) {
-    Message.warning('请输入要翻译的文本');
+    Message.warning('Please enter text to translate');
     return;
   }
 
@@ -120,7 +120,7 @@ const handleTranslate = async () => {
     // 保存历史记录
     const newHistory = {
       source: sourceLang.value === 'auto' 
-        ? '自动检测' 
+        ? 'Auto Detect' 
         : languages.find(l => l.code === sourceLang.value)?.name,
       target: languages.find(l => l.code === targetLang.value).name,
       original: sourceText.value,
@@ -130,22 +130,22 @@ const handleTranslate = async () => {
     
     history.value = [newHistory, ...history.value.slice(0, 9)]; // 保留最近 10 条记录
   } catch (error) {
-    console.error('API 错误详情：', error);
+    console.error('API Error Details:', error);
 
     // 改进错误信息显示
-    let errorMessage = '翻译失败';
+    let errorMessage = 'Translation failed';
     if (error.response) {
       // 如果 API 返回了错误响应
       errorMessage = error.response.data?.message || error.response.statusText;
     } else if (error.request) {
       // 如果请求已发送但没有收到响应
-      errorMessage = '无法连接到翻译服务，请检查网络连接';
+      errorMessage = 'Cannot connect to translation service, please check your network';
     } else {
       // 其他错误
-      errorMessage = error.message || '未知错误';
+      errorMessage = error.message || 'Unknown error';
     }
 
-    Message.error(`翻译失败: ${errorMessage}`);
+    Message.error(`Translation failed: ${errorMessage}`);
   } finally {
     loading.value = false;
   }

@@ -2,9 +2,9 @@
   <div class="quote-uploader-container">
     <a-modal
       v-model:visible="visible"
-      :title="`报价录入: ${currentProject ? currentProject.projectName : ''}`"
-      :ok-text="'提交 / Submit'"
-      :cancel-text="'取消 / Cancel'"
+      :title="`Quote Entry: ${currentProject ? currentProject.projectName : ''}`"
+      :ok-text="'Submit'"
+      :cancel-text="'Cancel'"
       @ok="submitQuote"
       @cancel="closeModal"
       :ok-loading="submitting"
@@ -16,66 +16,66 @@
     >
       <a-form :model="quoteForm" layout="vertical" @submit.prevent="submitQuote">
         <!-- 项目任务选择 -->
-        <a-form-item field="task" label="项目任务 / Project Task" required>
+        <a-form-item field="task" label="Project Task" required>
           <a-select 
             v-model="quoteForm.task" 
-            placeholder="选择任务 / Select task"
+            placeholder="Select task"
             allow-clear
           >
-            <a-option value="translation">翻译任务 / Translation Task</a-option>
-            <a-option value="lqa">LQA任务 / LQA Task</a-option>
-            <a-option value="translationUpdate">翻译更新 / Translation Update</a-option>
-            <a-option value="lqaReportFinalization">LQA报告定稿 / LQA Report Finalization</a-option>
+            <a-option value="translation">Translation Task</a-option>
+            <a-option value="lqa">LQA Task</a-option>
+            <a-option value="translationUpdate">Translation Update</a-option>
+            <a-option value="lqaReportFinalization">LQA Report Finalization</a-option>
           </a-select>
         </a-form-item>
         
         <!-- 任务负责人 -->
-        <a-form-item field="assignee" label="任务负责人 / Task Assignee" required>
-          <a-input v-model="quoteForm.assignee" placeholder="输入负责人 / Enter assignee name" />
+        <a-form-item field="assignee" label="Task Assignee" required>
+          <a-input v-model="quoteForm.assignee" placeholder="Enter assignee name" />
         </a-form-item>
         
         <!-- 语言选择 -->
-        <a-form-item field="language" label="语言 / Language" required>
+        <a-form-item field="language" label="Language" required>
           <a-radio-group v-model="quoteForm.language" type="button" size="medium">
             <a-radio v-for="lang in availableLanguages" :key="lang.code" :value="lang.code">
               {{ lang.name }}
             </a-radio>
           </a-radio-group>
           <div class="language-hint" v-if="availableLanguages.length === 0">
-            (未设置项目语言 / No project languages set)
+            (No project languages set)
           </div>
         </a-form-item>
         
         <!-- 报价金额和货币 -->
         <div class="quote-amount-row">
-          <a-form-item field="quoteAmount" label="报价金额 / Quote Amount" required style="flex: 1; margin-right: 12px;">
-            <a-input-number v-model="quoteForm.quoteAmount" placeholder="报价金额 / Quote amount" :min="0" :precision="2" />
+          <a-form-item field="quoteAmount" label="Quote Amount" required style="flex: 1; margin-right: 12px;">
+            <a-input-number v-model="quoteForm.quoteAmount" placeholder="Quote amount" :min="0" :precision="2" />
           </a-form-item>
           
-          <a-form-item field="currency" label="货币 / Currency" style="flex: 0.5;">
-            <a-select v-model="quoteForm.currency" placeholder="选择货币 / Select currency">
-              <a-option value="USD">美元 / USD</a-option>
-              <a-option value="EUR">欧元 / EUR</a-option>
-              <a-option value="CNY">人民币 / CNY</a-option>
-              <a-option value="JPY">日元 / JPY</a-option>
-              <a-option value="GBP">英镑 / GBP</a-option>
+          <a-form-item field="currency" label="Currency" style="flex: 0.5;">
+            <a-select v-model="quoteForm.currency" placeholder="Select currency">
+              <a-option value="USD">USD</a-option>
+              <a-option value="EUR">EUR</a-option>
+              <a-option value="CNY">CNY</a-option>
+              <a-option value="JPY">JPY</a-option>
+              <a-option value="GBP">GBP</a-option>
             </a-select>
           </a-form-item>
         </div>
         
         <!-- 字数和单价 -->
         <div class="quote-amount-row">
-          <a-form-item field="wordCount" label="字数 / Word Count" style="flex: 1; margin-right: 12px;">
-            <a-input-number v-model="quoteForm.wordCount" placeholder="字数 / Word count" :min="0" />
+          <a-form-item field="wordCount" label="Word Count" style="flex: 1; margin-right: 12px;">
+            <a-input-number v-model="quoteForm.wordCount" placeholder="Word count" :min="0" />
           </a-form-item>
           
-          <a-form-item field="unitPrice" label="单价 / Unit Price" style="flex: 1;">
-            <a-input-number v-model="quoteForm.unitPrice" placeholder="单价 / Unit price" :min="0" :precision="4" />
+          <a-form-item field="unitPrice" label="Unit Price" style="flex: 1;">
+            <a-input-number v-model="quoteForm.unitPrice" placeholder="Unit price" :min="0" :precision="4" />
           </a-form-item>
         </div>
         
         <!-- 截止日期 -->
-        <a-form-item field="deadline" label="截止日期 / Deadline">
+        <a-form-item field="deadline" label="Deadline">
           <a-date-picker 
             v-model="quoteForm.deadline" 
             style="width: 100%;"
@@ -84,7 +84,7 @@
         </a-form-item>
         
         <!-- 上传报价文件 -->
-        <a-form-item field="quoteFile" label="报价文件 / Quote File">
+        <a-form-item field="quoteFile" label="Quote File">
           <a-upload
             action="http://localhost:5000/api/upload"
             :file-list="fileList"
@@ -95,7 +95,7 @@
           >
             <template #upload-button>
               <a-button type="primary">
-                上传报价文件 / Upload Quote File
+                Upload Quote File
               </a-button>
             </template>
           </a-upload>
@@ -105,16 +105,16 @@
         <a-form-item>
           <a-button type="primary" @click="extractQuoteInfo" :disabled="!hasUploadedFile" :loading="extracting">
             <template #icon><icon-robot /></template>
-            自动提取报价信息 / Extract Quote Info
+            Extract Quote Info
           </a-button>
-          <a-tooltip content="从上传的报价文件中自动提取报价信息 / Automatically extract quote information from the uploaded file">
+          <a-tooltip content="Automatically extract quote information from the uploaded file">
             <icon-info-circle style="margin-left: 8px; color: var(--color-text-3);" />
           </a-tooltip>
         </a-form-item>
         
         <!-- 备注 -->
-        <a-form-item field="notes" label="备注 / Notes">
-          <a-textarea v-model="quoteForm.notes" placeholder="备注 / Notes" :auto-size="{ minRows: 3, maxRows: 5 }" />
+        <a-form-item field="notes" label="Notes">
+          <a-textarea v-model="quoteForm.notes" placeholder="Notes" :auto-size="{ minRows: 3, maxRows: 5 }" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -199,7 +199,7 @@ const uploadHeaders = computed(() => {
 // 打开模态框
 const openQuoteModal = (project) => {
   if (props.userRole !== 'FT' && props.userRole !== 'LM') {
-    Message.error('只有财务团队或本地化经理可以录入报价 / Only Financial Team or LM can enter quotes');
+    Message.error('Only Financial Team or LM can enter quotes');
     return;
   }
   
@@ -243,20 +243,20 @@ const handleFileChange = (file) => {
     // 上传成功处理
     if (file.response && file.response.file_id) {
       uploadedFileId.value = file.response.file_id;
-      Message.success('文件上传成功 / File uploaded successfully');
+      Message.success('File uploaded successfully');
     } else {
-      Message.error('文件上传响应中缺少file_id / Missing file_id in response');
+      Message.error('Missing file_id in response');
     }
   } else if (file.status === 'error') {
     // 上传错误处理
-    Message.error(`文件上传失败: ${file.response?.error || '未知错误'} / Upload failed: ${file.response?.error || 'Unknown error'}`);
+    Message.error(`Upload failed: ${file.response?.error || 'Unknown error'}`);
   }
 };
 
 // 提取报价信息
 const extractQuoteInfo = async () => {
   if (!hasUploadedFile.value) {
-    Message.warning('请先上传报价文件 / Please upload a quote file first');
+    Message.warning('Please upload a quote file first');
     return;
   }
   
@@ -266,7 +266,7 @@ const extractQuoteInfo = async () => {
     // 获取token
     const token = localStorage.getItem('token');
     if (!token) {
-      Message.error('登录会话已过期，请重新登录 / Session expired, please login again');
+      Message.error('Session expired, please login again');
       extracting.value = false;
       return;
     }
@@ -289,7 +289,7 @@ const extractQuoteInfo = async () => {
       if (response.data) {
         // 更新表单数据
         updateFormWithExtractedData(response.data);
-        Message.success('成功提取报价信息 / Successfully extracted quote information');
+        Message.success('Successfully extracted quote information');
       }
     } catch (error) {
       console.log('后端API提取失败，使用前端实现:', error);
@@ -303,14 +303,14 @@ const extractQuoteInfo = async () => {
         const extractedData = await extractQuoteFromFile(file, fileType);
         updateFormWithExtractedData(extractedData);
         
-        Message.success('成功提取报价信息（前端模拟） / Successfully extracted quote information (frontend simulation)');
+        Message.success('Successfully extracted quote information (frontend simulation)');
       } else {
-        throw new Error('无法访问文件内容 / Cannot access file content');
+        throw new Error('Cannot access file content');
       }
     }
   } catch (error) {
     console.error('Error extracting quote info:', error);
-    Message.error(`提取失败: ${error.message || '未知错误'} / Extraction failed: ${error.message || 'Unknown error'}`);
+    Message.error(`Extraction failed: ${error.message || 'Unknown error'}`);
   } finally {
     extracting.value = false;
   }
@@ -333,22 +333,22 @@ const updateFormWithExtractedData = (extractedData) => {
 const submitQuote = async () => {
   // 表单验证
   if (!quoteForm.task) {
-    Message.error('请选择项目任务 / Please select a project task');
+    Message.error('Please select a project task');
     return;
   }
   
   if (!quoteForm.assignee) {
-    Message.error('请输入任务负责人 / Please enter task assignee');
+    Message.error('Please enter task assignee');
     return;
   }
   
   if (!quoteForm.language) {
-    Message.error('请选择语言 / Please select a language');
+    Message.error('Please select a language');
     return;
   }
   
   if (quoteForm.quoteAmount <= 0) {
-    Message.error('请输入有效的报价金额 / Please enter a valid quote amount');
+    Message.error('Please enter a valid quote amount');
     return;
   }
   
@@ -358,14 +358,14 @@ const submitQuote = async () => {
     // 获取token
     const token = localStorage.getItem('token');
     if (!token) {
-      Message.error('登录会话已过期，请重新登录 / Session expired, please login again');
+      Message.error('Session expired, please login again');
       submitting.value = false;
       return;
     }
     
     // 检查当前项目是否有效
     if (!currentProject.value || !currentProject.value.id) {
-      Message.error('项目信息无效，请重试 / Invalid project information, please try again');
+      Message.error('Invalid project information, please try again');
       submitting.value = false;
       return;
     }
@@ -413,14 +413,14 @@ const submitQuote = async () => {
       
       // 检查状态码 - 后端返回201表示创建成功
       if (response.status === 201 || response.status === 200) {
-        Message.success('报价提交成功 / Quote submitted successfully');
+        Message.success('Quote submitted successfully');
         console.log('报价创建成功，ID:', response.data.id);
         emit('uploaded');
         closeModal();
       } else {
         console.error('报价提交返回了非成功状态码:', response.status);
         console.error('响应数据:', response.data);
-        throw new Error(`提交返回了非成功状态码: ${response.status} / Submission returned a non-success status code: ${response.status}`);
+        throw new Error(`Submission returned a non-success status code: ${response.status}`);
       }
     } catch (axiosError) {
       console.error('Axios错误:', axiosError);
@@ -453,25 +453,25 @@ const submitQuote = async () => {
       
       // 针对不同状态码显示不同错误信息
       if (error.response.status === 401) {
-        errorMessage = '认证失败，请重新登录 / Authentication failed, please login again';
+        errorMessage = 'Authentication failed, please login again';
       } else if (error.response.status === 403) {
-        errorMessage = '权限不足，无法提交报价 / Insufficient permissions to submit quote';
+        errorMessage = 'Insufficient permissions to submit quote';
       } else if (error.response.status === 500) {
-        errorMessage = '服务器内部错误 / Server internal error';
+        errorMessage = 'Server internal error';
       } else {
-        errorMessage = `服务器错误: ${error.response.status} - ${error.response.data.error || error.message}`;
+        errorMessage = `Server error: ${error.response.status} - ${error.response.data.error || error.message}`;
       }
     } else if (error.request) {
       // 请求已发送，但没有收到响应
       console.error('没有收到服务器响应:', error.request);
-      errorMessage = '服务器没有响应，请检查网络连接和后端服务状态 / No response from server, please check network connection and backend service status';
+      errorMessage = 'No response from server, please check network connection and backend service status';
     } else {
       // 请求配置错误
       console.error('请求错误:', error.message);
-      errorMessage = `请求错误: ${error.message} / Request error: ${error.message}`;
+      errorMessage = `Request error: ${error.message}`;
     }
     
-    Message.error(`提交失败: ${errorMessage} / Submission failed: ${errorMessage}`);
+    Message.error(`Submission failed: ${errorMessage}`);
   } finally {
     submitting.value = false;
   }

@@ -1,55 +1,55 @@
 <template>
   <div class="request-form-container">
-    <h2>提交本地化请求 / Submit Localization Request</h2>
+    <h2>Submit Localization Request</h2>
     <a-form :model="form" :style="{ width: '600px' }" @submit="handleSubmit">
-      <a-form-item field="requestName" label="请求名称 / Request Name" required>
-        <a-input v-model="form.requestName" placeholder="请提供一个清晰且可区分的标题 / Provide a clear and distinguishable title" />
+      <a-form-item field="requestName" label="Request Name" required>
+        <a-input v-model="form.requestName" placeholder="Provide a clear and distinguishable title" />
       </a-form-item>
       
-      <a-form-item field="requestBackground" label="请求背景 / Request Background" required>
+      <a-form-item field="requestBackground" label="Request Background" required>
         <a-textarea 
           v-model="form.requestBackground" 
-          placeholder="简要概述项目范围和目标 / Briefly outline the project scope and objectives"
-          :auto-size="{ minRows: 3, maxRows: 5 }"
+          :auto-size="{ minRows: 3, maxRows: 6 }"
+          placeholder="Briefly outline the project scope and objectives"
         />
       </a-form-item>
       
-      <a-form-item field="sourceLanguage" label="源语言 / Source Language" required>
-        <a-select v-model="form.sourceLanguage" placeholder="选择源语言 / Select source language">
-          <a-option v-for="lang in languages" :key="lang.code" :value="lang.code">
-            {{ lang.name }}
+      <a-form-item field="sourceLanguage" label="Source Language" required>
+        <a-select v-model="form.sourceLanguage" placeholder="Select source language">
+          <a-option v-for="language in languages" :key="language.code" :value="language.code">
+            {{ language.name.replace(/^.*? \/ /, '') }}
           </a-option>
         </a-select>
       </a-form-item>
       
-      <a-form-item field="targetLanguages" label="目标语言 / Target Languages" required>
-        <a-select
-          v-model="form.targetLanguages"
-          placeholder="选择目标语言 / Select target languages"
+      <a-form-item field="targetLanguages" label="Target Languages" required>
+        <a-select 
+          v-model="form.targetLanguages" 
+          placeholder="Select target languages"
           multiple
+          allow-clear
         >
-          <a-option v-for="lang in languages" :key="lang.code" :value="lang.code">
-            {{ lang.name }}
+          <a-option v-for="language in targetLanguageOptions" :key="language.code" :value="language.code">
+            {{ language.name.replace(/^.*? \/ /, '') }}
           </a-option>
         </a-select>
       </a-form-item>
       
-      <a-form-item field="wordCount" label="估计字数 / Estimated Word Count" required>
-        <a-input-number v-model="form.wordCount" placeholder="估计字数 / Estimated word count" :min="1" />
+      <a-form-item field="wordCount" label="Estimated Word Count" required>
+        <a-input-number v-model="form.wordCount" placeholder="Estimated word count" :min="1" />
       </a-form-item>
       
-      <a-form-item field="additionalRequirements" label="附加要求 / Additional Requirements">
-        <a-checkbox-group v-model="form.additionalRequirements">
-          <a-checkbox value="lqa">语言质量保证 (LQA) / Linguistic Quality Assurance</a-checkbox>
-          <a-checkbox value="imageTranslation">图像文本翻译 / Image Text Translation</a-checkbox>
-        </a-checkbox-group>
+      <a-form-item field="additionalRequirements" label="Additional Requirements">
+        <a-space direction="vertical">
+          <a-checkbox value="imageTranslation">Image Text Translation</a-checkbox>
+        </a-space>
       </a-form-item>
       
-      <a-form-item field="expectedDeliveryDate" label="预期交付日期 / Expected Delivery Date" required>
-        <a-date-picker v-model="form.expectedDeliveryDate" :disabled-date="disabledDate" />
+      <a-form-item field="expectedDeliveryDate" label="Expected Delivery Date" required>
+        <a-date-picker v-model="form.expectedDeliveryDate" style="width: 100%;" placeholder="Please select date" />
       </a-form-item>
       
-      <a-form-item field="files" label="上传文件 / Upload Files">
+      <a-form-item field="files" label="Upload Files">
         <a-upload
           action="http://localhost:5000/api/upload"
           :file-list="fileList"
@@ -57,17 +57,22 @@
           :headers="uploadHeaders"
           multiple
         >
-          <a-button>上传文件 / Upload Files</a-button>
+          <template #upload-button>
+            <a-button type="primary">
+              Upload Files
+            </a-button>
+          </template>
+          <template #description>
+            <div>Click to upload</div>
+          </template>
         </a-upload>
       </a-form-item>
       
       <a-form-item>
-        <a-button type="primary" html-type="submit" :loading="submitting">
-          提交请求 / Submit Request
-        </a-button>
-        <a-button style="margin-left: 16px" @click="resetForm">
-          重置 / Reset
-        </a-button>
+        <a-space>
+          <a-button type="primary" html-type="submit" :loading="submitting">Submit Request</a-button>
+          <a-button style="margin-left: 16px" @click="resetForm">Reset</a-button>
+        </a-space>
       </a-form-item>
     </a-form>
   </div>
@@ -116,7 +121,7 @@ const handleFileChange = async (file, fileList) => {
   console.log('File changed:', file, fileList);
   
   if (!file.raw) {
-    console.error('文件对象无效 / Invalid file object');
+    console.error('Invalid file object');
     return;
   }
   
@@ -126,7 +131,7 @@ const handleFileChange = async (file, fileList) => {
   // 获取token
   const token = localStorage.getItem('token');
   if (!token) {
-    Message.error('请先登录 / Please login first');
+    Message.error('Please login first');
     return;
   }
   
@@ -149,7 +154,7 @@ const handleFileChange = async (file, fileList) => {
       
       if (isNaN(fileId)) {
         console.error('服务器返回了无效的文件ID:', response.data.file_id);
-        Message.error('服务器返回了无效的文件ID / Server returned invalid file ID');
+        Message.error('Server returned invalid file ID');
         return;
       }
       
@@ -165,10 +170,10 @@ const handleFileChange = async (file, fileList) => {
       console.log('文件ID:', fileId, '文件名:', fileName);
       console.log('当前上传文件列表:', uploadedFiles.value);
       
-      Message.success('文件上传成功 / File uploaded successfully');
+      Message.success('File uploaded successfully');
     } else {
       console.error('Upload failed:', response.data);
-      Message.error(response.data.error || '上传失败 / Upload failed');
+      Message.error(response.data.error || 'Upload failed');
       
       // 移除失败的文件
       fileList.splice(fileList.indexOf(file), 1);
@@ -177,14 +182,14 @@ const handleFileChange = async (file, fileList) => {
     console.error('Upload error:', error);
     
     // 检查是否有详细的错误信息
-    let errorMessage = '上传失败 / Upload failed';
+    let errorMessage = 'Upload failed';
     
     if (error.response) {
       console.error('Error response:', error.response.data);
       
       // 处理401未授权错误
       if (error.response.status === 401) {
-        errorMessage = '未授权，请重新登录 / Unauthorized, please login again';
+        errorMessage = 'Unauthorized, please login again';
       } else if (error.response.data && error.response.data.error) {
         errorMessage = error.response.data.error;
       }
@@ -205,7 +210,7 @@ const fixFileMappings = async () => {
     console.log('自动修复文件映射关系...');
     // 删除加载消息
     // Message.loading({
-    //   content: '正在修复文件映射，请稍候... / Fixing file mappings, please wait...',
+    //   content: 'Fixing file mappings, please wait...',
     //   duration: 0
     // });
     
@@ -256,7 +261,7 @@ const fixFileMappings = async () => {
       // 删除成功消息，只保留控制台日志
       if (newMappings > 0) {
         // Message.success({
-        //   content: `文件映射已自动修复! 新增 ${newMappings} 个映射 / File mappings fixed! Added ${newMappings} mappings`,
+        //   content: `File mappings fixed! Added ${newMappings} mappings`,
         //   duration: 5000
         // });
         console.log(`文件映射已自动修复! 新增 ${newMappings} 个映射`);
@@ -276,29 +281,29 @@ const fixFileMappings = async () => {
 
 const handleSubmit = async () => {
   if (uploading.value) {
-    Message.warning('文件正在上传中，请等待上传完成 / Files are still uploading, please wait');
+    Message.warning('Files are still uploading, please wait');
     return;
   }
   
   // 验证表单 - 现在直接访问form对象的字段，不再需要 .value
   if (!form.requestName.trim()) {
-    Message.error('请输入请求名称 / Please enter request name');
+    Message.error('Please enter request name');
     return;
   }
   if (!form.sourceLanguage) {
-    Message.error('请选择源语言 / Please select source language');
+    Message.error('Please select source language');
     return;
   }
   if (!form.targetLanguages || form.targetLanguages.length === 0) {
-    Message.error('请选择至少一种目标语言 / Please select at least one target language');
+    Message.error('Please select at least one target language');
     return;
   }
   if (!form.wordCount || form.wordCount <= 0) {
-    Message.error('请输入有效的字数 / Please enter a valid word count');
+    Message.error('Please enter a valid word count');
     return;
   }
   if (!form.expectedDeliveryDate) {
-    Message.error('请选择预期交付日期 / Please select expected delivery date');
+    Message.error('Please select expected delivery date');
     return;
   }
   
@@ -308,7 +313,7 @@ const handleSubmit = async () => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      Message.error('请先登录 / Please login first');
+      Message.error('Please login first');
       submitting.value = false;
       return;
     }
@@ -343,7 +348,7 @@ const handleSubmit = async () => {
     
     if (uploadedFiles.value.length > 0 && validFileIds.length === 0) {
       console.error('存在上传文件但没有有效的文件ID，检查文件上传状态');
-      Message.warning('文件上传未完成或出现问题，请检查 / File upload is incomplete or has issues, please check');
+      Message.warning('File upload is incomplete or has issues, please check');
     }
     
     // 准备提交数据
@@ -371,7 +376,7 @@ const handleSubmit = async () => {
     console.log('请求提交响应:', response.data);
     
     if (response.data && response.data.id) {
-      Message.success(`需求提交成功 (ID: ${response.data.id}) / Request submitted successfully`);
+      Message.success(`Request submitted successfully`);
       
       // 检查是否有上传文件，如果有则自动修复文件映射
       if (validFileIds.length > 0) {
@@ -389,18 +394,18 @@ const handleSubmit = async () => {
       // router.push('/requests');
     } else {
       console.error('Request submission failed:', response.data);
-      Message.error(response.data.error || '提交失败 / Submission failed');
+      Message.error(response.data.error || 'Submission failed');
     }
   } catch (error) {
     console.error('Request submission error:', error);
     
-    let errorMessage = '提交失败 / Submission failed';
+    let errorMessage = 'Submission failed';
     
     if (error.response) {
       console.error('Error response:', error.response.data);
       
       if (error.response.status === 401) {
-        errorMessage = '未授权，请重新登录 / Unauthorized, please login again';
+        errorMessage = 'Unauthorized, please login again';
       } else if (error.response.data && error.response.data.error) {
         errorMessage = error.response.data.error;
       }

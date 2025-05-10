@@ -148,7 +148,7 @@ def token_required(f):
             return jsonify({"error": "Authorization header is missing"}), 401
         
         print(f"收到Authorization头: {auth_header}")
-        
+    
         try:
             # 检查格式是否符合"Bearer <token>"
             if not auth_header.startswith('Bearer '):
@@ -161,6 +161,7 @@ def token_required(f):
             try:
                 payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
                 print(f"令牌解码成功，负载: {payload}")
+
                 
                 # 检查必要的字段
                 if 'user_id' not in payload:
@@ -181,6 +182,8 @@ def token_required(f):
                 request.user = payload
                 print("令牌验证成功")
                 return f(*args, **kwargs)
+
+
             except jwt.ExpiredSignatureError:
                 print("错误: 令牌已过期")
                 return jsonify({"error": "Token has expired"}), 401
@@ -195,10 +198,11 @@ def token_required(f):
     
     decorated.__name__ = f.__name__
     return decorated
-
+        
 # 项目相关接口
 @app.route('/api/projects', methods=['GET'])
 @token_required
+
 def get_projects():
     user_role = request.user.get('role')
     # 尝试从不同的键名获取用户ID
@@ -260,6 +264,7 @@ def get_project(project_id):
             # BO只能查看自己的项目
             cur.execute("SELECT * FROM projectname WHERE id = %s AND created_by = %s", (project_id, user_id))
         
+
         project = cur.fetchone()
         if not project:
             return jsonify({"error": "Project not found or you don't have permission"}), 404
@@ -2254,7 +2259,6 @@ def export_quotes():
             lang_sheet.append(["语言 / Language", language])
             lang_sheet.append(["字数 / Word Count", project['wordCount']])
             
-            # 添加空行
             lang_sheet.append([])
             
             # 添加该语言的报价信息表头
@@ -2355,6 +2359,8 @@ def export_quotes():
     except Exception as e:
         print(f"Error exporting quotes: {str(e)}")
         return jsonify({'error': f'导出报价信息失败: {str(e)} / Export failed: {str(e)}'}), 500
+
+
 
 if __name__ == '__main__':
     logger.info("==========================================")

@@ -137,7 +137,7 @@ const loadProjects = async () => {
       console.error('错误响应:', error.response.data);
       console.error('状态码:', error.response.status);
     }
-    Message.error('获取项目列表失败 / Failed to fetch projects');
+    Message.error('Failed to fetch projects');
     projects.value = [];
   }
 };
@@ -147,7 +147,7 @@ const getProjectById = async (projectId) => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      Message.error('未登录或会话已过期 / Not logged in or session expired');
+      Message.error('Not logged in or session expired');
       return null;
     }
     
@@ -236,7 +236,7 @@ const handleEditProject = (project) => {
 
 // 处理项目更新
 const handleProjectUpdated = (updatedProject) => {
-  Message.success('项目已更新 / Project has been updated');
+  Message.success('Project has been updated');
   
   // 更新后立即刷新项目列表
   loadProjects().then(() => {
@@ -274,7 +274,7 @@ const handleSendProjectEmail = (project) => {
 
 // 处理邮件发送完成
 const handleEmailSent = (emailData) => {
-  Message.success('邮件已发送 / Email has been sent');
+  Message.success('Email has been sent');
 };
 
 // 处理文件上传

@@ -2,41 +2,41 @@
   <div class="email-sender-container">
     <a-modal
       v-model:visible="visible"
-      title="发送项目邮件 / Send Project Email"
+      title="Send Project Email"
       @ok="sendProjectEmail"
       @cancel="closeModal"
       :ok-loading="sendingEmail"
     >
       <a-form :model="emailForm">
-        <a-form-item field="to" label="收件人 / To" required>
-          <a-input v-model="emailForm.to" placeholder="收件人邮箱 / Recipient email" />
+        <a-form-item field="to" label="To" required>
+          <a-input v-model="emailForm.to" placeholder="Recipient email" />
         </a-form-item>
-        <a-form-item field="cc" label="抄送 / CC">
-          <a-input v-model="emailForm.cc" placeholder="抄送邮箱 / CC email" />
+        <a-form-item field="cc" label="CC">
+          <a-input v-model="emailForm.cc" placeholder="CC email" />
         </a-form-item>
-        <a-form-item field="subject" label="主题 / Subject" required>
-          <a-input v-model="emailForm.subject" placeholder="邮件主题 / Email subject" />
+        <a-form-item field="subject" label="Subject" required>
+          <a-input v-model="emailForm.subject" placeholder="Email subject" />
         </a-form-item>
         
         <!-- Project Schedule 表格 -->
-        <a-form-item field="projectSchedule" label="项目计划 / Project Schedule">
+        <a-form-item field="projectSchedule" label="Project Schedule">
           <div class="project-schedule-table">
             <a-table :columns="scheduleColumns" :data="detailedScheduleData" :bordered="true" :pagination="false" size="small">
               <template #empty>
-                <div>项目数据不可用 / Project data unavailable</div>
+                <div>Project data unavailable</div>
               </template>
             </a-table>
           </div>
         </a-form-item>
         
-        <a-form-item field="content" label="内容 / Content" required>
+        <a-form-item field="content" label="Content" required>
           <a-textarea
             v-model="emailForm.content"
-            placeholder="邮件内容 / Email content"
+            placeholder="Email content"
             :auto-size="{ minRows: 5, maxRows: 10 }"
           />
         </a-form-item>
-        <a-form-item field="attachments" label="附件 / Attachments">
+        <a-form-item field="attachments" label="Attachments">
           <a-upload
             action="http://localhost:5000/api/upload"
             :file-list="emailAttachments"
@@ -44,18 +44,21 @@
             :headers="uploadHeaders"
             multiple
           >
-            <a-button>上传附件 / Upload Attachments</a-button>
+            <a-button>Upload Attachments</a-button>
           </a-upload>
         </a-form-item>
       </a-form>
       <template #footer>
         <a-space>
-          <a-button @click="closeModal">取消 / Cancel</a-button>
+          <a-button @click="closeModal">Cancel</a-button>
           <a-button type="primary" @click="previewEmail">
             <template #icon><icon-eye /></template>
-            预览邮件 / Preview Email
+            Preview Email
           </a-button>
-          <a-button type="primary" @click="sendProjectEmail" :loading="sendingEmail">发送 / Send</a-button>
+          <a-button type="primary" status="success" @click="openInEmailClient">
+            <template #icon><icon-email /></template>
+            Open in Email Client
+          </a-button>
         </a-space>
       </template>
     </a-modal>
@@ -66,8 +69,28 @@
 import { ref, computed, defineProps, defineEmits, onMounted } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import axios from 'axios';
-import { IconEye } from '@arco-design/web-vue/es/icon';
+import { IconEye, IconEmail } from '@arco-design/web-vue/es/icon';
 import { getScheduleData } from './utils/projectUtils';
+
+// 添加安全的日期格式化函数
+const safeDateFormat = (date) => {
+  if (!date) return 'TBD';
+  try {
+    // 如果是日期对象，格式化它
+    if (date instanceof Date) {
+      return date.toLocaleDateString();
+    }
+    // 如果是字符串，尝试解析
+    const dateObj = new Date(date);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toLocaleDateString();
+    }
+    return date;
+  } catch (e) {
+    console.error('日期格式化错误:', e);
+    return date || 'TBD';
+  }
+};
 
 const props = defineProps({
   userRole: {
@@ -97,27 +120,27 @@ const emailForm = ref({
 // Project Schedule 表格列定义
 const scheduleColumns = [
   {
-    title: '任务 / Task',
+    title: 'Task',
     dataIndex: 'task',
     key: 'task',
   },
   {
-    title: '语言 / Language',
+    title: 'Language',
     dataIndex: 'language',
     key: 'language',
   },
   {
-    title: '截止日期 / Deadline',
+    title: 'Deadline',
     dataIndex: 'deadline',
     key: 'deadline',
   },
   {
-    title: '负责人 / Owner(s)',
+    title: 'Owner(s)',
     dataIndex: 'owner',
     key: 'owner',
   },
   {
-    title: '备注 / Notes',
+    title: 'Notes',
     dataIndex: 'notes',
     key: 'notes',
   }
@@ -177,10 +200,25 @@ const detailedScheduleData = computed(() => {
       const assignment = assignmentsByTaskType[taskType][language];
       
       if (assignment) {
+        // 确保正确格式化deadline
+        let deadline = "TBD";
+        if (assignment.deadline) {
+          try {
+            // 尝试将deadline转换为日期对象并格式化
+            const deadlineDate = new Date(assignment.deadline);
+            if (!isNaN(deadlineDate.getTime())) {
+              deadline = deadlineDate.toLocaleDateString();
+            }
+          } catch (e) {
+            console.error('Error formatting deadline:', e);
+            deadline = assignment.deadline; // 使用原始值作为回退
+          }
+        }
+        
         result.push({
           task: taskDisplayName,
           language: getLanguageDisplayName(language),
-          deadline: assignment.deadline ? new Date(assignment.deadline).toLocaleDateString() : 'TBD',
+          deadline: deadline,
           owner: assignment.assignee || 'Not Assigned',
           notes: assignment.notes || ''
         });
@@ -193,6 +231,7 @@ const detailedScheduleData = computed(() => {
     return scheduleData.value;
   }
   
+  console.log('Email preview schedule data:', result);
   return result;
 });
 
@@ -233,10 +272,35 @@ const loadProjectTaskAssignments = async (projectId) => {
   }
 };
 
+// 新增: 收集所有任务负责人的邮箱地址
+const collectAssigneeEmails = () => {
+  if (!taskAssignments.value || taskAssignments.value.length === 0) {
+    return [];
+  }
+  
+  // 收集所有唯一的assignee
+  const assignees = new Set();
+  
+  taskAssignments.value.forEach(assignment => {
+    if (assignment.assignee && assignment.assignee.trim() !== '' && assignment.assignee !== 'Not Assigned') {
+      assignees.add(assignment.assignee.trim());
+    }
+  });
+  
+  // 将assignee转换为电子邮件地址格式
+  const emails = Array.from(assignees).map(assignee => {
+    // 移除可能的特殊字符，确保邮箱地址有效
+    const cleanName = assignee.replace(/[^\w\s]/gi, '').replace(/\s+/g, '.');
+    return `${cleanName}@sample.com`;
+  });
+  
+  return emails;
+};
+
 // 打开邮件发送对话框
 const openEmailModal = async (project) => {
   if (props.userRole !== 'LM') {
-    Message.error('只有本地化经理可以发送项目邮件 / Only Localization Managers can send project emails');
+    Message.error('Only Localization Managers can send project emails');
     return;
   }
 
@@ -247,13 +311,22 @@ const openEmailModal = async (project) => {
   await loadProjectTaskAssignments(project.id);
 
   // 设置邮件主题
-  emailForm.value.subject = `项目更新: ${project.projectName} / Project Update: ${project.projectName}`;
+  emailForm.value.subject = `Project Update: ${project.projectName}`;
   
   // 构建邮件正文
   generateEmailContent();
   
-  // 清空其他字段
-  emailForm.value.to = '';
+  // 自动填充收件人字段 - 新增代码
+  const emails = collectAssigneeEmails();
+  emailForm.value.to = emails.join('; ');
+  
+  // 如果没有自动找到邮箱，可以使用项目经理作为备用收件人
+  if (emails.length === 0 && project.projectManager) {
+    const managerEmail = `${project.projectManager.replace(/[^\w\s]/gi, '').replace(/\s+/g, '.')}@sample.com`;
+    emailForm.value.to = managerEmail;
+  }
+  
+  // 清空抄送字段和附件
   emailForm.value.cc = '';
   emailAttachments.value = [];
   
@@ -266,12 +339,12 @@ const generateEmailContent = () => {
   if (!currentProject.value) return;
   
   // 纯文本格式的项目进度表（用于实际发送）
-  let textSchedule = 'Project Schedule:\n';
-  textSchedule += '--------------------------------\n';
+  let textSchedule = 'Project Schedule:\r\n';
+  textSchedule += '--------------------------------\r\n';
   
   // 添加表头
-  textSchedule += 'Task             Language        Deadline        Owner(s)         Notes\n';
-  textSchedule += '--------------------------------\n';
+  textSchedule += 'Task             Language        Deadline        Owner(s)         Notes\r\n';
+  textSchedule += '--------------------------------\r\n';
   
   // 添加任务行
   detailedScheduleData.value.forEach(item => {
@@ -281,9 +354,9 @@ const generateEmailContent = () => {
     const owner = (item.owner || '').padEnd(16);
     const notes = item.notes || '';
     
-    textSchedule += `${task}${language}${deadline}${owner}${notes}\n`;
+    textSchedule += `${task}${language}${deadline}${owner}${notes}\r\n`;
   });
-  textSchedule += '--------------------------------\n\n';
+  textSchedule += '--------------------------------\r\n\r\n';
   
   // HTML格式的项目进度表（用于预览）- 实现Task列相同值合并
   let htmlSchedule = `
@@ -346,24 +419,131 @@ const generateEmailContent = () => {
     </div>
   `;
   
-  // 设置邮件内容（纯文本）
-  let plainTextContent = `亲爱的供应商，\n\n`;
-  plainTextContent += `希望这封邮件能找到您一切安好。我在此向您提供${currentProject.value.projectName}项目的最新进度安排。\n\n`;
+  // 设置邮件内容（纯文本）- 确保使用Windows风格的换行符 \r\n
+  let plainTextContent = `Dear supplier,\r\n\r\n`;
+  plainTextContent += `I hope this email finds you well. I am providing you with the latest project schedule for the ${currentProject.value.projectName} project.\r\n\r\n`;
   plainTextContent += textSchedule;
-  plainTextContent += `如有任何问题，请随时与我联系。\n\n`;
-  plainTextContent += `此致，\n${currentProject.value.projectManager}\n`;
+  plainTextContent += `If you have any questions, please feel free to contact me.\r\n\r\n`;
+  plainTextContent += `Regards,\r\n${currentProject.value.projectManager}\r\n`;
+  
+  // 保存简化版本用于mailto链接
+  let mailtoContent = `Dear supplier,\r\n\r\n`;
+  mailtoContent += `I hope this email finds you well. I am providing you with the latest project schedule for the ${currentProject.value.projectName} project.\r\n\r\n`;
+  mailtoContent += `Project Schedule Summary:\r\n\r\n`;
+  
+  // 添加任务专用的截止日期信息
+  mailtoContent += `Important Deadlines:\r\n`;
+  if (currentProject.value.translationDeadline) {
+    mailtoContent += `- Translation: ${safeDateFormat(currentProject.value.translationDeadline)}\r\n`;
+  }
+  if (currentProject.value.lqaDeadline) {
+    mailtoContent += `- LQA: ${safeDateFormat(currentProject.value.lqaDeadline)}\r\n`;
+  }
+  if (currentProject.value.translationUpdateDeadline) {
+    mailtoContent += `- Translation Update: ${safeDateFormat(currentProject.value.translationUpdateDeadline)}\r\n`;
+  }
+  if (currentProject.value.lqaReportFinalizationDeadline) {
+    mailtoContent += `- LQA Report Finalization: ${safeDateFormat(currentProject.value.lqaReportFinalizationDeadline)}\r\n`;
+  }
+  mailtoContent += `- Project Final Delivery: ${safeDateFormat(currentProject.value.expectedDeliveryDate)}\r\n\r\n`;
+  
+  // 收集任务类型、语言和负责人
+  const taskTypes = new Set();
+  const languages = new Set();
+  const assigneesByTask = {};
+  
+  detailedScheduleData.value.forEach(item => {
+    if (item.task) {
+      taskTypes.add(item.task);
+      
+      // 按任务类型组织负责人
+      if (!assigneesByTask[item.task]) {
+        assigneesByTask[item.task] = {};
+      }
+      
+      if (item.language && item.owner) {
+        assigneesByTask[item.task][item.language] = item.owner;
+      }
+    }
+    
+    if (item.language) languages.add(item.language);
+  });
+  
+  const taskArray = Array.from(taskTypes);
+  const languageArray = Array.from(languages);
+  
+  // 创建ASCII表格
+  // 表头
+  let headerRow = '+-----------------+';
+  languageArray.forEach(() => {
+    headerRow += '----------------+';
+  });
+  
+  mailtoContent += headerRow + '\r\n';
+  
+  // 任务/语言行
+  let langHeaderRow = '| Task/Language    |';
+  languageArray.forEach(lang => {
+    langHeaderRow += ` ${lang.padEnd(14)} |`;
+  });
+  
+  mailtoContent += langHeaderRow + '\r\n';
+  mailtoContent += headerRow + '\r\n';
+  
+  // 数据行
+  taskArray.forEach(task => {
+    let dataRow = `| ${task.padEnd(15)} |`;
+    
+    languageArray.forEach(lang => {
+      const assignee = assigneesByTask[task]?.[lang] || 'N/A';
+      // 限制显示长度，以维持表格对齐
+      const displayAssignee = assignee.length > 14 ? assignee.substring(0, 11) + '...' : assignee;
+      dataRow += ` ${displayAssignee.padEnd(14)} |`;
+    });
+    
+    mailtoContent += dataRow + '\r\n';
+  });
+  
+  // 表格底部
+  mailtoContent += headerRow + '\r\n\r\n';
+  
+  // 添加其他说明
+  mailtoContent += `Deadline: ${currentProject.value.expectedDeliveryDate || 'TBD'}\r\n`;
+  mailtoContent += `Project Manager: ${currentProject.value.projectManager || 'TBD'}\r\n\r\n`;
+  
+  mailtoContent += `For detailed schedule, please see the attached preview or contact me.\r\n\r\n`;
+  mailtoContent += `If you have any questions, please feel free to contact me.\r\n\r\n`;
+  mailtoContent += `Regards,\r\n${currentProject.value.projectManager}`;
   
   // HTML格式的邮件内容
   let htmlContent = `
-    <p>亲爱的供应商，</p>
-    <p>希望这封邮件能找到您一切安好。我在此向您提供${currentProject.value.projectName}项目的最新进度安排。</p>
+    <p>Dear supplier,</p>
+    <p>I hope this email finds you well. I am providing you with the latest project schedule for the ${currentProject.value.projectName} project.</p>
+    
+    <!-- 添加任务截止日期信息 -->
+    <div style="background-color:#f5f7fa;padding:15px;border-left:4px solid #165dff;margin:15px 0;border-radius:4px;">
+      <h3 style="margin-top:0;color:#165dff">Important Deadlines</h3>
+      <ul style="list-style-type:none;padding-left:0;line-height:1.8">
+        ${currentProject.value.translationDeadline ? 
+          `<li><strong>Translation:</strong> ${safeDateFormat(currentProject.value.translationDeadline)}</li>` : ''}
+        ${currentProject.value.lqaDeadline ? 
+          `<li><strong>LQA:</strong> ${safeDateFormat(currentProject.value.lqaDeadline)}</li>` : ''}
+        ${currentProject.value.translationUpdateDeadline ? 
+          `<li><strong>Translation Update:</strong> ${safeDateFormat(currentProject.value.translationUpdateDeadline)}</li>` : ''}
+        ${currentProject.value.lqaReportFinalizationDeadline ? 
+          `<li><strong>LQA Report Finalization:</strong> ${safeDateFormat(currentProject.value.lqaReportFinalizationDeadline)}</li>` : ''}
+        <li><strong>Project Final Delivery:</strong> ${safeDateFormat(currentProject.value.expectedDeliveryDate)}</li>
+      </ul>
+    </div>
+    
     ${htmlSchedule}
-    <p>如有任何问题，请随时与我联系。</p>
-    <p>此致，<br>${currentProject.value.projectManager}</p>
+    <p>If you have any questions, please feel free to contact me.</p>
+    <p>Regards,<br>${currentProject.value.projectManager}</p>
   `;
   
-  // 保存两种格式
+  // 保存所有格式
   emailForm.value.content = plainTextContent;
+  emailForm.value.mailtoContent = mailtoContent; // 添加专用于mailto的内容
   emailForm.value.htmlContent = htmlContent;
 };
 
@@ -376,7 +556,7 @@ const closeModal = () => {
 // 预览邮件
 const previewEmail = () => {
   if (!emailForm.value.content) {
-    Message.error('邮件内容不能为空 / Email content cannot be empty');
+    Message.error('Email content cannot be empty');
     return;
   }
   
@@ -477,9 +657,82 @@ const previewEmail = () => {
     });
   } else {
     // 浏览器可能阻止了窗口打开
-    Message.error('浏览器阻止了窗口打开，请允许弹出窗口 / Browser blocked opening the window, please allow popups');
+    Message.error('Browser blocked opening the window, please allow popups');
     // 释放URL对象
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+};
+
+// 新增: 在默认邮件客户端中打开
+const openInEmailClient = () => {
+  if (!emailForm.value.to || !emailForm.value.subject || !emailForm.value.content) {
+    Message.error('Please fill in all required fields');
+    return;
+  }
+  
+  try {
+    // 使用专用的简化内容或回退到完整内容
+    const emailContent = emailForm.value.mailtoContent || emailForm.value.content;
+    
+    // 构建mailto链接，保持url参数长度在合理范围内
+    let mailtoLink = 'mailto:' + encodeURIComponent(emailForm.value.to);
+    
+    // 添加抄送
+    if (emailForm.value.cc) {
+      mailtoLink += '?cc=' + encodeURIComponent(emailForm.value.cc);
+    }
+    
+    // 添加主题
+    mailtoLink += (mailtoLink.includes('?') ? '&' : '?') + 'subject=' + encodeURIComponent(emailForm.value.subject);
+    
+    // 添加正文内容 - 限制长度，避免超出mailto协议限制
+    const maxBodyLength = 1900; // 大多数邮件客户端支持的安全长度
+    let bodyContent = emailContent;
+    
+    if (bodyContent.length > maxBodyLength) {
+      console.warn(`Email body content truncated from ${bodyContent.length} to ${maxBodyLength} characters`);
+      bodyContent = bodyContent.substring(0, maxBodyLength) + 
+        "\r\n...\r\n[Content truncated due to length. Full content will be visible in your email client.]";
+    }
+    
+    mailtoLink += '&body=' + encodeURIComponent(bodyContent);
+    
+    // 输出链接长度用于调试
+    console.log(`Mailto link length: ${mailtoLink.length} characters`);
+    
+    // 创建一个实际的链接元素并进行点击，这比直接修改window.location更可靠
+    const link = document.createElement('a');
+    link.href = mailtoLink;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    
+    // 立即触发点击
+    link.click();
+    
+    // 清理DOM
+    setTimeout(() => {
+      document.body.removeChild(link);
+    }, 100);
+    
+    // 显示更详细的成功消息
+    Message.success({
+      content: '正在尝试打开您的默认邮件客户端。如果项目进度表显示不完整，请使用Preview功能预览完整内容。',
+      duration: 5000
+    });
+    
+    // 添加控制台日志以便调试
+    console.log('Attempted to open email client with link');
+    
+  } catch (error) {
+    console.error('Error opening email client:', error);
+    
+    Message.error({
+      content: `Unable to open mail client: ${error.message}. Please make sure your system has set up a default mail application, or copy the content and send it manually.`,
+      duration: 5000
+    });
+    
+    
+    
   }
 };
 
@@ -489,13 +742,13 @@ const sendProjectEmail = async () => {
   
   // 检查用户角色
   if (props.userRole !== 'LM') {
-    Message.error('只有本地化经理可以发送项目邮件 / Only Localization Managers can send project emails');
+    Message.error('Only Localization Managers can send project emails');
     return;
   }
   
   // 表单验证
   if (!emailForm.value.to || !emailForm.value.subject || !emailForm.value.content) {
-    Message.error('请填写所有必填字段 / Please fill in all required fields');
+    Message.error('Please fill in all required fields');
     return;
   }
   
@@ -521,15 +774,15 @@ const sendProjectEmail = async () => {
     const response = await axios.post('http://localhost:5000/api/emails', emailData);
     
     if (response.status === 200) {
-      Message.success('邮件发送成功 / Email sent successfully');
+      Message.success('Email sent successfully');
       visible.value = false;
       emit('sent', response.data); // 通知父组件邮件已发送
     } else {
-      throw new Error('发送失败 / Sending failed');
+      throw new Error('Sending failed');
     }
   } catch (error) {
     console.error('Error sending email:', error);
-    Message.error(`发送失败: ${error.message} / Sending failed: ${error.message}`);
+    Message.error(`Sending failed: ${error.message}`);
   } finally {
     sendingEmail.value = false;
   }
@@ -543,14 +796,14 @@ const handleEmailAttachmentChange = (options) => {
   if (options.file.status === 'done') {
     const response = options.file.response;
     if (response && response.filename) {
-      Message.success(`附件 ${options.file.name} 上传成功 / Attachment ${options.file.name} uploaded successfully`);
+      Message.success(`Attachment ${options.file.name} uploaded successfully`);
     }
   }
   
   // 处理上传失败的情况
   if (options.file.status === 'error') {
     console.error('Attachment upload error:', options.file.response);
-    Message.error(`附件 ${options.file.name} 上传失败 / Attachment ${options.file.name} upload failed`);
+    Message.error(`Attachment ${options.file.name} upload failed`);
   }
   
   // 更新附件列表

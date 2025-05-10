@@ -15,17 +15,17 @@
       
       <!-- 当前选中语言的报价详情 -->
       <div v-if="currentQuote" class="quote-info">
-        <div><strong>语言 / Language:</strong> {{ getLanguageName(currentQuote.language) }}</div>
-        <div><strong>负责人 / Vendor:</strong> {{ currentQuote.assignee }}</div>
-        <div><strong>金额 / Amount:</strong> {{ currentQuote.quoteAmount }} {{ currentQuote.currency }}</div>
-        <div><strong>字数 / Word Count:</strong> {{ currentQuote.wordCount }}</div>
-        <div><strong>单价 / Unit Price:</strong> {{ currentQuote.unitPrice }}</div>
-        <div><strong>截止日期 / Deadline:</strong> {{ formatDate(currentQuote.deadline) }}</div>
-        <div><strong>备注 / Notes:</strong> {{ currentQuote.notes || '无 / None' }}</div>
+        <div><strong>Language:</strong> {{ getLanguageName(currentQuote.language) }}</div>
+        <div><strong>Vendor:</strong> {{ currentQuote.assignee }}</div>
+        <div><strong>Amount:</strong> {{ currentQuote.quoteAmount }} {{ currentQuote.currency }}</div>
+        <div><strong>Word Count:</strong> {{ currentQuote.wordCount }}</div>
+        <div><strong>Unit Price:</strong> {{ currentQuote.unitPrice }}</div>
+        <div><strong>Deadline:</strong> {{ formatDate(currentQuote.deadline) }}</div>
+        <div><strong>Notes:</strong> {{ currentQuote.notes || 'None' }}</div>
       </div>
     </div>
     <div v-else class="no-quotes">
-      <span>暂无报价信息 / No quote information available</span>
+      <span>No quote information available</span>
     </div>
   </div>
 </template>
