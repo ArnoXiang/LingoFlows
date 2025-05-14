@@ -79,6 +79,7 @@
                   style="width: 100%;" 
                   placeholder="Please select date" 
                   :disabled="!isEditing"
+                  format="YYYY-MM-DD"
                   value-format="YYYY-MM-DD" 
                 />
               </a-descriptions-item>
@@ -102,33 +103,34 @@
               <a-collapse default-active-key="1">
                 <a-collapse-item header="Translation Task" key="1">
                   <div v-if="targetLanguagesList.length > 0">
-                    <!-- 按语言分配任务 -->
-                    <a-form-item label="Assignee">
-                      <a-input
-                        v-model="selectedTranslator" 
-                        placeholder="Translator name"
-                        @change="(value) => updateLanguageAssignees('translation', value)"
-                        :disabled="!isEditing"
-                      />
-                    </a-form-item>
-                    <a-form-item label="Deadline">
-                      <a-date-picker 
-                        v-model="selectedTranslationDeadline" 
-                        style="width: 100%;"
-                        @change="(value) => updateLanguageDeadlines('translation', value)"
-                        placeholder="Please select date"
-                        :disabled="!isEditing"
-                        value-format="YYYY-MM-DD"
-                      />
-                    </a-form-item>
-                    <a-form-item label="Notes">
-                      <a-textarea 
-                        v-model="selectedTranslationNotes" 
-                        placeholder="Task notes"
-                        @change="(value) => updateLanguageNotes('translation', value)"
-                        :disabled="!isEditing"
-                      />
-                    </a-form-item>
+                    <!-- 添加语言选择标签页 -->
+                    <a-tabs v-model:activeKey="activeLanguageKeys.translation" class="language-tabs">
+                      <a-tab-pane v-for="lang in targetLanguagesList" :key="lang" :title="getLanguageName(lang)">
+                        <a-form-item label="Assignee">
+                          <a-input
+                            v-model="languageAssignments.translation[lang].assignee" 
+                            placeholder="Translator name"
+                            :disabled="!isEditing"
+                          />
+                        </a-form-item>
+                        <a-form-item label="Deadline">
+                          <a-date-picker 
+                            v-model="languageAssignments.translation[lang].deadline" 
+                            style="width: 100%;"
+                            placeholder="Please select date"
+                            :disabled="!isEditing"
+                            value-format="YYYY-MM-DD"
+                          />
+                        </a-form-item>
+                        <a-form-item label="Notes">
+                          <a-textarea 
+                            v-model="languageAssignments.translation[lang].notes" 
+                            placeholder="Task notes"
+                            :disabled="!isEditing"
+                          />
+                        </a-form-item>
+                      </a-tab-pane>
+                    </a-tabs>
                     
                     <a-form-item label="Status">
                       <a-select v-model="project.tasks.translation.status" :disabled="!isEditing">
@@ -151,33 +153,34 @@
                 
                 <a-collapse-item header="LQA Task" key="2">
                   <div v-if="targetLanguagesList.length > 0">
-                    <!-- 按语言分配任务 -->
-                    <a-form-item label="Assignee">
-                      <a-input
-                        v-model="selectedLqaSpecialist" 
-                        placeholder="LQA Specialist name"
-                        @change="(value) => updateLanguageAssignees('lqa', value)"
-                        :disabled="!isEditing"
-                      />
-                    </a-form-item>
-                    <a-form-item label="Deadline">
-                      <a-date-picker 
-                        v-model="selectedLqaDeadline" 
-                        style="width: 100%;"
-                        @change="(value) => updateLanguageDeadlines('lqa', value)"
-                        placeholder="Please select date"
-                        :disabled="!isEditing"
-                        value-format="YYYY-MM-DD"
-                      />
-                    </a-form-item>
-                    <a-form-item label="Notes">
-                      <a-textarea 
-                        v-model="selectedLqaNotes" 
-                        placeholder="Task notes"
-                        @change="(value) => updateLanguageNotes('lqa', value)"
-                        :disabled="!isEditing"
-                      />
-                    </a-form-item>
+                    <!-- 添加语言选择标签页 -->
+                    <a-tabs v-model:activeKey="activeLanguageKeys.lqa" class="language-tabs">
+                      <a-tab-pane v-for="lang in targetLanguagesList" :key="lang" :title="getLanguageName(lang)">
+                        <a-form-item label="Assignee">
+                          <a-input
+                            v-model="languageAssignments.lqa[lang].assignee" 
+                            placeholder="LQA Specialist name"
+                            :disabled="!isEditing"
+                          />
+                        </a-form-item>
+                        <a-form-item label="Deadline">
+                          <a-date-picker 
+                            v-model="languageAssignments.lqa[lang].deadline" 
+                            style="width: 100%;"
+                            placeholder="Please select date"
+                            :disabled="!isEditing"
+                            value-format="YYYY-MM-DD"
+                          />
+                        </a-form-item>
+                        <a-form-item label="Notes">
+                          <a-textarea 
+                            v-model="languageAssignments.lqa[lang].notes" 
+                            placeholder="Task notes"
+                            :disabled="!isEditing"
+                          />
+                        </a-form-item>
+                      </a-tab-pane>
+                    </a-tabs>
                     
                     <a-form-item label="Status">
                       <a-select v-model="project.tasks.lqa.status" :disabled="!isEditing">
@@ -200,33 +203,34 @@
                 
                 <a-collapse-item header="Translation Update" key="3">
                   <div v-if="targetLanguagesList.length > 0">
-                    <!-- 按语言分配任务 -->
-                    <a-form-item label="Assignee">
-                      <a-input
-                        v-model="selectedUpdateSpecialist" 
-                        placeholder="Update Specialist name"
-                        @change="(value) => updateLanguageAssignees('translationUpdate', value)"
-                        :disabled="!isEditing"
-                      />
-                    </a-form-item>
-                    <a-form-item label="Deadline">
-                      <a-date-picker 
-                        v-model="selectedUpdateDeadline" 
-                        style="width: 100%;"
-                        @change="(value) => updateLanguageDeadlines('translationUpdate', value)"
-                        placeholder="Please select date"
-                        :disabled="!isEditing"
-                        value-format="YYYY-MM-DD"
-                      />
-                    </a-form-item>
-                    <a-form-item label="Notes">
-                      <a-textarea 
-                        v-model="selectedUpdateNotes" 
-                        placeholder="Task notes"
-                        @change="(value) => updateLanguageNotes('translationUpdate', value)"
-                        :disabled="!isEditing"
-                      />
-                    </a-form-item>
+                    <!-- 添加语言选择标签页 -->
+                    <a-tabs v-model:activeKey="activeLanguageKeys.translationUpdate" class="language-tabs">
+                      <a-tab-pane v-for="lang in targetLanguagesList" :key="lang" :title="getLanguageName(lang)">
+                        <a-form-item label="Assignee">
+                          <a-input
+                            v-model="languageAssignments.translationUpdate[lang].assignee" 
+                            placeholder="Update Specialist name"
+                            :disabled="!isEditing"
+                          />
+                        </a-form-item>
+                        <a-form-item label="Deadline">
+                          <a-date-picker 
+                            v-model="languageAssignments.translationUpdate[lang].deadline" 
+                            style="width: 100%;"
+                            placeholder="Please select date"
+                            :disabled="!isEditing"
+                            value-format="YYYY-MM-DD"
+                          />
+                        </a-form-item>
+                        <a-form-item label="Notes">
+                          <a-textarea 
+                            v-model="languageAssignments.translationUpdate[lang].notes" 
+                            placeholder="Task notes"
+                            :disabled="!isEditing"
+                          />
+                        </a-form-item>
+                      </a-tab-pane>
+                    </a-tabs>
                     
                     <a-form-item label="Status">
                       <a-select v-model="project.tasks.translationUpdate.status" :disabled="!isEditing">
@@ -249,33 +253,34 @@
                 
                 <a-collapse-item header="LQA Report Finalization" key="4">
                   <div v-if="targetLanguagesList.length > 0">
-                    <!-- 按语言分配任务 -->
-                    <a-form-item label="Assignee">
-                      <a-input
-                        v-model="selectedReportSpecialist" 
-                        placeholder="Report Specialist name"
-                        @change="(value) => updateLanguageAssignees('lqaReportFinalization', value)"
-                        :disabled="!isEditing"
-                      />
-                    </a-form-item>
-                    <a-form-item label="Deadline">
-                      <a-date-picker 
-                        v-model="selectedReportDeadline" 
-                        style="width: 100%;"
-                        @change="(value) => updateLanguageDeadlines('lqaReportFinalization', value)"
-                        placeholder="Please select date"
-                        :disabled="!isEditing"
-                        value-format="YYYY-MM-DD"
-                      />
-                    </a-form-item>
-                    <a-form-item label="Notes">
-                      <a-textarea 
-                        v-model="selectedReportNotes" 
-                        placeholder="Task notes"
-                        @change="(value) => updateLanguageNotes('lqaReportFinalization', value)"
-                        :disabled="!isEditing"
-                      />
-                    </a-form-item>
+                    <!-- 添加语言选择标签页 -->
+                    <a-tabs v-model:activeKey="activeLanguageKeys.lqaReportFinalization" class="language-tabs">
+                      <a-tab-pane v-for="lang in targetLanguagesList" :key="lang" :title="getLanguageName(lang)">
+                        <a-form-item label="Assignee">
+                          <a-input
+                            v-model="languageAssignments.lqaReportFinalization[lang].assignee" 
+                            placeholder="Report Specialist name"
+                            :disabled="!isEditing"
+                          />
+                        </a-form-item>
+                        <a-form-item label="Deadline">
+                          <a-date-picker 
+                            v-model="languageAssignments.lqaReportFinalization[lang].deadline" 
+                            style="width: 100%;"
+                            placeholder="Please select date"
+                            :disabled="!isEditing"
+                            value-format="YYYY-MM-DD"
+                          />
+                        </a-form-item>
+                        <a-form-item label="Notes">
+                          <a-textarea 
+                            v-model="languageAssignments.lqaReportFinalization[lang].notes" 
+                            placeholder="Task notes"
+                            :disabled="!isEditing"
+                          />
+                        </a-form-item>
+                      </a-tab-pane>
+                    </a-tabs>
                     
                     <a-form-item label="Status">
                       <a-select v-model="project.tasks.lqaReportFinalization.status" :disabled="!isEditing">
@@ -326,6 +331,15 @@
         <div class="drawer-footer" style="margin-top: 24px; text-align: right;">
           <a-space>
             <!-- Save按钮已移除 -->
+            <a-button 
+              v-if="props.userRole === 'LM'" 
+              type="primary" 
+              status="danger" 
+              @click="confirmDeleteProject"
+            >
+              <template #icon><icon-delete /></template>
+              Delete Project
+            </a-button>
           </a-space>
         </div>
       </div>
@@ -335,7 +349,7 @@
 
 <script setup>
 import { ref, defineProps, defineEmits, computed, watch, nextTick } from 'vue';
-import { Message } from '@arco-design/web-vue';
+import { Message, Modal } from '@arco-design/web-vue';
 import axios from 'axios';
 import { languages } from '../../utils/languages';
 import { 
@@ -348,6 +362,7 @@ import {
   formatDate 
 } from './utils/projectUtils';
 import FileManager from './FileManager.vue'; // 导入FileManager组件
+import { IconDelete } from '@arco-design/web-vue/es/icon';
 
 const props = defineProps({
   userRole: {
@@ -385,6 +400,14 @@ const isEditing = ref(false);
 const activeTabKey = ref('info'); // 当前激活的标签页
 const fileManagerRef = ref(null); // 文件管理器引用
 const drawerWidth = ref(800); // 添加drawerWidth状态
+
+// 添加每种任务类型当前选中的语言标签
+const activeLanguageKeys = ref({
+  translation: '',
+  lqa: '',
+  translationUpdate: '',
+  lqaReportFinalization: ''
+});
 
 // 用于拖拽调整抽屉宽度
 const isResizing = ref(false);
@@ -459,14 +482,22 @@ const initLanguageAssignments = (languages, existingAssignments = {}) => {
         };
       }
       
-      // 如果存在现有分配，使用它更新数据
-      const existing = existingAssignments[taskType] && existingAssignments[taskType][lang];
+      // 修复：检查existingAssignments[taskType]是否存在，以及language是否存在
+      const existing = existingAssignments && 
+                       existingAssignments[taskType] && 
+                       existingAssignments[taskType][lang];
+      
       if (existing) {
         languageAssignments.value[taskType][lang].assignee = existing.assignee || '';
         languageAssignments.value[taskType][lang].deadline = existing.deadline || null;
         languageAssignments.value[taskType][lang].notes = existing.notes || '';
       }
     });
+
+    // 初始化每个任务类型的当前选中语言
+    if (languages.length > 0) {
+      activeLanguageKeys.value[taskType] = languages[0];
+    }
   });
   
   console.log("初始化后的语言分配数据:", JSON.stringify(languageAssignments.value));
@@ -486,17 +517,45 @@ const formatLanguageAssignmentsForSubmit = () => {
   // 确保所有目标语言和任务类型的组合都有分配记录
   ensureAllLanguageTasksInitialized(allLanguages);
   
+  // 日期格式化辅助函数
+  const formatDateForSubmit = (dateValue) => {
+    if (!dateValue) return null;
+    
+    // 如果已经是标准日期字符串格式(YYYY-MM-DD)，则直接返回
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      return dateValue;
+    }
+    
+    try {
+      // 如果是日期对象，或其他格式的日期字符串，转换为YYYY-MM-DD格式
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) {
+        console.warn('无效日期值:', dateValue);
+        return null;
+      }
+      
+      // 格式化为YYYY-MM-DD
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      console.error('格式化日期时出错:', error);
+      return null;
+    }
+  };
+  
   taskTypes.forEach(taskType => {
     if (languageAssignments.value[taskType]) {
       allLanguages.forEach(lang => {
         // 总是包含所有语言的分配，即使assignee为空
         const assignment = getLanguageAssignment(taskType, lang);
         
-        // 获取deadline - 可能已经是字符串格式
-        let deadline = assignment.deadline;
+        // 获取deadline并格式化为YYYY-MM-DD
+        let deadline = formatDateForSubmit(assignment.deadline);
         
         // 记录日期处理过程
-        console.log(`处理任务分配日期: ${taskType}-${lang}, 原始值:`, deadline);
+        console.log(`处理任务分配日期: ${taskType}-${lang}, 原始值:`, assignment.deadline, '格式化后:', deadline);
         
         result.push({
           project_id: project.value.id,
@@ -584,9 +643,24 @@ const loadLanguageAssignmentsFromResponse = (assignments) => {
     lqaReportFinalization: {}
   };
   
+  // 确保assignments是数组
+  if (!Array.isArray(assignments)) {
+    console.warn('loadLanguageAssignmentsFromResponse: assignments不是数组', assignments);
+    return result;
+  }
+  
   // 处理每个分配
   assignments.forEach(assignment => {
+    // 确保assignment是有效对象
+    if (!assignment) return;
+    
     const { task_type, language, assignee, deadline, notes } = assignment;
+    
+    // 确保task_type和language都有效
+    if (!task_type || !language) {
+      console.warn('忽略无效的任务分配:', assignment);
+      return;
+    }
     
     if (!result[task_type]) {
       result[task_type] = {};
@@ -604,6 +678,12 @@ const loadLanguageAssignmentsFromResponse = (assignments) => {
 
 // 获取特定任务类型和语言的分配对象
 const getLanguageAssignment = (taskType, language) => {
+  // 确保参数有效
+  if (!taskType || !language) {
+    console.warn('getLanguageAssignment: 无效的参数', { taskType, language });
+    return { assignee: '', deadline: null, notes: '' };
+  }
+  
   // 确保taskType有效
   if (!languageAssignments.value[taskType]) {
     languageAssignments.value[taskType] = {};
@@ -655,7 +735,8 @@ const loadProjectTaskAssignments = async (projectId) => {
   } catch (error) {
     console.error('获取项目任务分配数据失败:', error);
     // 确保即使API调用失败，也不会丢失本地的任务分配数据
-    return Promise.reject(error);
+    // 注意：这里我们返回空数组而不是拒绝Promise，避免错误传播
+    return Promise.resolve([]);
   }
 };
 
@@ -858,36 +939,42 @@ const openDrawer = (currentProject, mode = 'view') => {
   const languages = targetLanguagesList.value;
   console.log("经过计算属性处理后的目标语言列表:", languages);
   
-  // 先初始化空的分配数据
+  // 先初始化空的分配数据，确保每种语言都有初始化的数据结构
   initLanguageAssignments(languages);
   
   // 不管是编辑模式还是查看模式，都加载项目的任务分配数据
   if (project.value && project.value.id) {
-    loadProjectTaskAssignments(project.value.id).then((assignments) => {
-      // 确保在任务分配数据加载完成后更新UI
-      if (!isEditing.value) {
-        console.log('查看模式：任务分配数据已加载');
-      } else {
-        console.log('编辑模式：任务分配数据已加载:', assignments);
+    loadProjectTaskAssignments(project.value.id)
+      .then((assignments) => {
+        // 确保在任务分配数据加载完成后更新UI
+        if (!isEditing.value) {
+          console.log('查看模式：任务分配数据已加载');
+        } else {
+          console.log('编辑模式：任务分配数据已加载:', assignments);
+        }
+        
         // 确保所有语言的所有任务类型都被正确初始化
+        // 此处传入的第二个参数应该是languageAssignments.value，而不是直接使用它
+        // 这里确保在API请求完成后，再次初始化所有语言
         initLanguageAssignments(languages, languageAssignments.value);
-      }
-      
-      // 重新初始化单个任务字段
-      initLanguageAssignmentFields();
-      
-      // 强制更新组件以显示新的数据
-      nextTick(() => {
-        // 如果需要，可以在这里添加额外的UI更新逻辑
+        
+        // 重新初始化单个任务字段
+        initLanguageAssignmentFields();
+        
+        // 强制更新组件以显示新的数据
+        nextTick(() => {
+          // 如果需要，可以在这里添加额外的UI更新逻辑
+        });
+      })
+      .catch(error => {
+        console.error('加载任务分配数据失败:', error);
+        // 即使加载失败，也要确保所有语言都被初始化
+        // 确保在错误情况下重新初始化语言分配
+        initLanguageAssignments(languages);
+        
+        // 初始化单个任务字段
+        initLanguageAssignmentFields();
       });
-    }).catch(error => {
-      console.error('加载任务分配数据失败:', error);
-      // 即使加载失败，也要确保所有语言都被初始化
-      initLanguageAssignments(languages);
-      
-      // 初始化单个任务字段
-      initLanguageAssignmentFields();
-    });
   }
   
   // 如果文件管理器引用存在，加载项目文件
@@ -978,6 +1065,79 @@ const switchToFilesTab = () => {
   activeTabKey.value = 'files';
 };
 
+// 确认删除项目
+const confirmDeleteProject = () => {
+  if (!project.value || !project.value.id) {
+    Message.error('Project does not exist or has no ID');
+    return;
+  }
+  
+  // 检查用户角色
+  if (props.userRole !== 'LM') {
+    Message.error('Only Localization Managers can delete projects');
+    return;
+  }
+  
+  // 显示确认对话框
+  Modal.warning({
+    title: 'Delete Project',
+    content: `Are you sure you want to delete project "${project.value.projectName}"? This action cannot be undone.`,
+    okText: 'Delete',
+    cancelText: 'Cancel',
+    onOk: () => deleteProject()
+  });
+};
+
+// 删除项目
+const deleteProject = async () => {
+  if (!project.value || !project.value.id) return;
+  
+  try {
+    // 显示加载状态
+    Message.loading({
+      content: 'Deleting project...',
+      duration: 500
+    });
+    
+    // 获取token
+    const token = localStorage.getItem('token');
+    if (!token) {
+      Message.error('Authentication token not found');
+      return;
+    }
+    
+    // 发送删除请求
+    const response = await axios.delete(`http://localhost:5000/api/projects/${project.value.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (response.status === 200) {
+      Message.success('Project deleted successfully');
+      visible.value = false;
+      emit('update', { deleted: true, projectId: project.value.id }); // 通知父组件项目已删除
+    } else {
+      throw new Error('Deletion failed');
+    }
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    let errorMessage = 'Failed to delete project';
+    
+    if (error.response) {
+      if (error.response.status === 403) {
+        errorMessage = 'You do not have permission to delete this project';
+      } else if (error.response.status === 404) {
+        errorMessage = 'Project not found';
+      } else if (error.response.data && error.response.data.error) {
+        errorMessage = error.response.data.error;
+      }
+    }
+    
+    Message.error(errorMessage);
+  }
+};
+
 const saveProject = async () => {
   if (!project.value) return;
   
@@ -997,6 +1157,34 @@ const saveProject = async () => {
     // 确保所有语言的任务分配都被初始化
     ensureAllLanguageTasksInitialized(targetLanguagesList.value);
     
+    // 日期格式化辅助函数
+    const formatDateForSubmit = (dateValue) => {
+      if (!dateValue) return null;
+      
+      // 如果已经是标准日期字符串格式(YYYY-MM-DD)，则直接返回
+      if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        return dateValue;
+      }
+      
+      try {
+        // 如果是日期对象，或其他格式的日期字符串，转换为YYYY-MM-DD格式
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) {
+          console.warn('无效日期值:', dateValue);
+          return null;
+        }
+        
+        // 格式化为YYYY-MM-DD
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      } catch (error) {
+        console.error('格式化日期时出错:', error);
+        return null;
+      }
+    };
+    
     // 打印关键日期，帮助调试
     console.log('保存前日期检查:', {
       expectedDeliveryDate: project.value.expectedDeliveryDate,
@@ -1011,14 +1199,14 @@ const saveProject = async () => {
       taskLqaReportFinalizationDeadline: project.value.tasks.lqaReportFinalization.deadline
     });
     
-    // 格式化日期为字符串 - 项目的expectedDeliveryDate可能已经是正确格式
-    let formattedExpectedDeliveryDate = project.value.expectedDeliveryDate;
+    // 格式化日期为字符串 - 确保所有日期都是YYYY-MM-DD格式
+    let formattedExpectedDeliveryDate = formatDateForSubmit(project.value.expectedDeliveryDate);
     
-    // 直接使用各任务本身的deadline，可能已经是字符串格式
-    let formattedTranslationDeadline = project.value.translationDeadline;
-    let formattedLQADeadline = project.value.lqaDeadline;
-    let formattedTranslationUpdateDeadline = project.value.translationUpdateDeadline;
-    let formattedLQAReportFinalizationDeadline = project.value.lqaReportFinalizationDeadline;
+    // 格式化各个任务的截止日期
+    let formattedTranslationDeadline = formatDateForSubmit(project.value.translationDeadline);
+    let formattedLQADeadline = formatDateForSubmit(project.value.lqaDeadline);
+    let formattedTranslationUpdateDeadline = formatDateForSubmit(project.value.translationUpdateDeadline);
+    let formattedLQAReportFinalizationDeadline = formatDateForSubmit(project.value.lqaReportFinalizationDeadline);
     
     // 准备更新的项目数据
     const updatedProject = {
@@ -1583,4 +1771,29 @@ defineExpose({
 }
 
 /* 移除之前不兼容的选择器 */
+
+/* 语言标签页样式 */
+.language-tabs {
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+:deep(.language-tabs .arco-tabs-nav-tab) {
+  background-color: var(--color-fill-2);
+  border-radius: 4px 4px 0 0;
+  padding: 0 4px;
+}
+
+:deep(.language-tabs .arco-tabs-nav-tab .arco-tabs-tab) {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+:deep(.language-tabs .arco-tabs-content) {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  background-color: var(--color-bg-2);
+}
 </style> 

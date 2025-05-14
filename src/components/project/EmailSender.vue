@@ -43,6 +43,7 @@
             @change="handleEmailAttachmentChange"
             :headers="uploadHeaders"
             multiple
+            upload-text="Upload"
           >
             <a-button>Upload Attachments</a-button>
           </a-upload>

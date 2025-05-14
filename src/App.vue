@@ -413,15 +413,10 @@ export default defineComponent({
           // 自动登录成功后获取项目数据
           fetchProjectData();
           
-          // 如果是FT角色，直接进入财务管理页面
-          if (response.data.role === 'FT') {
-            currentPage.value = 'financial_management';
-            selectedMenuKey.value = '1_3';
-          } else {
-            // 其他角色默认进入请求管理页面
-            currentPage.value = 'request_management';
-            selectedMenuKey.value = '1_1';
-          }
+          // 修改：所有角色登录后默认跳转到首页
+          currentPage.value = 'home';
+          selectedMenuKey.value = '0';
+          
         } catch (error) {
           console.error('自动登录失败:', error);
           // 清除无效令牌
@@ -479,15 +474,11 @@ export default defineComponent({
         // 登录成功后获取项目数据
         fetchProjectData();
         
-        // 如果是FT角色，直接进入财务管理页面
-        if (user.role === 'FT') {
-          currentPage.value = 'financial_management';
-          selectedMenuKey.value = '1_3';
-        } else {
-          // 其他角色默认进入请求管理页面
-          currentPage.value = 'request_management';
-          selectedMenuKey.value = '1_1';
-        }
+        // 修改：所有角色登录后默认跳转到首页
+        currentPage.value = 'home';
+        selectedMenuKey.value = '0';
+        
+
       } catch (error) {
         console.error('登录失败:', error);
         
@@ -615,12 +606,15 @@ export default defineComponent({
           projectData.value = processedData;
           console.log(`成功处理 ${projectData.value.length} 条项目数据`);
           
+          // 注释掉FT角色自动跳转到财务管理页面的代码
+          /* 
           // 如果是FT角色且获取到了数据，检查是否需要切换到财务管理页面
           if (userRole.value === 'FT' && projectData.value.length > 0) {
             console.log('FT角色已获取项目数据，确保正确显示在财务管理页面');
             currentPage.value = 'financial_management';
             selectedMenuKey.value = '1_3';
           }
+          */
         } else {
           console.error('返回的数据不是数组:', response.data);
           projectData.value = [];

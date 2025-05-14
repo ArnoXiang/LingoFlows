@@ -236,6 +236,29 @@ const handleEditProject = (project) => {
 
 // 处理项目更新
 const handleProjectUpdated = (updatedProject) => {
+  // 检查是否是删除操作
+  if (updatedProject && updatedProject.deleted) {
+    Message.success('Project has been deleted');
+    
+    // 删除后立即刷新项目列表
+    loadProjects().then(() => {
+      // 从项目列表中移除已删除的项目
+      const index = projects.value.findIndex(p => p.id === updatedProject.projectId);
+      if (index !== -1) {
+        console.log('从项目列表中移除已删除的项目:', updatedProject.projectId);
+        // 移除项目
+        projects.value.splice(index, 1);
+        
+        // 触发视图更新
+        projects.value = [...projects.value];
+        
+        console.log('项目删除后刷新项目列表:', projects.value.length, '个项目');
+      }
+    });
+    return;
+  }
+  
+  // 正常的更新操作
   Message.success('Project has been updated');
   
   // 更新后立即刷新项目列表

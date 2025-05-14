@@ -83,7 +83,13 @@
       :pagination="{
         showTotal: true,
         showPageSize: true,
-        pageSize: 10,
+        pageSize: pageSize,
+        total: filteredProjects.length,
+        sizeCanChange: true,
+        pageSizeOptions: [10, 20, 50, 100],
+        onPageSizeChange: (size) => pageSize = size,
+        formatTotal: (total) => `Total ${total} items`,
+        formatPageSize: (pageSize) => `${pageSize} items/page`
       }"
       row-key="id"
       style="margin-top: 16px;"
@@ -213,6 +219,14 @@ const emit = defineEmits([
 // 表格列定义
 const columns = [
   {
+    title: 'Project ID',
+    dataIndex: 'id',
+    key: 'id',
+    sortable: true,
+    resizable: true,
+    width: 120,
+  },
+  {
     title: 'Project Name',
     dataIndex: 'projectName',
     key: 'projectName',
@@ -299,6 +313,7 @@ const statusFilter = ref('all');
 const projectManagerFilter = ref('all');
 const deliveryDateFilter = ref(null);
 const dateFilterMode = ref('before');
+const pageSize = ref(10);
 
 // 过滤后的项目列表
 const filteredProjects = computed(() => {
@@ -518,6 +533,7 @@ const exportToCSV = async (filteredOnly = true) => {
     
     // CSV标题行
     const headers = [
+      'Project ID',
       'Project Name',
       'Project Status',
       'Request Name',
@@ -533,6 +549,7 @@ const exportToCSV = async (filteredOnly = true) => {
     // 将项目数据转换为CSV行
     const csvData = dataToExport.map(project => {
       return [
+        project.id,
         project.projectName,
         getStatusText(project.projectStatus), // 转换状态代码为可读文本
         project.requestName,

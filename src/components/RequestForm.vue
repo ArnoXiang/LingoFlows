@@ -40,8 +40,17 @@
       </a-form-item>
       
       <a-form-item field="additionalRequirements" label="Additional Requirements">
-        <a-space direction="vertical">
-          <a-checkbox value="imageTranslation">Image Text Translation</a-checkbox>
+        <a-space direction="vertical" style="width: 100%;">
+          <a-checkbox v-model="lqaChecked">Linguistic Quality Assurance</a-checkbox>
+          <a-checkbox v-model="imageTranslationChecked">Image Text Translation</a-checkbox>
+          <a-checkbox v-model="customChecked">Custom Requirements</a-checkbox>
+          <a-textarea 
+            v-model="form.customRequirements" 
+            placeholder="Please specify your custom requirements here"
+            :disabled="!customChecked"
+            :auto-size="{ minRows: 2, maxRows: 4 }"
+            style="margin-top: 8px;"
+          />
         </a-space>
       </a-form-item>
       
@@ -84,6 +93,14 @@ import { Message } from '@arco-design/web-vue';
 import { languages } from '../utils/languages';
 import axios from 'axios';
 
+// 设置targetLanguageOptions为导入的languages数组
+const targetLanguageOptions = languages;
+
+// 附加需求勾选框状态
+const lqaChecked = ref(false);
+const imageTranslationChecked = ref(false);
+const customChecked = ref(false);
+
 // 表单响应式状态 - 使用reactive而不是ref，确保字段名一致
 const form = reactive({
   requestName: '',
@@ -93,6 +110,7 @@ const form = reactive({
   wordCount: 0,
   additionalRequirements: [],
   expectedDeliveryDate: null,
+  customRequirements: '',
 });
 
 // 文件上传相关状态
@@ -307,6 +325,12 @@ const handleSubmit = async () => {
     return;
   }
   
+  // 收集附加需求
+  form.additionalRequirements = [];
+  if (lqaChecked.value) form.additionalRequirements.push('lqa');
+  if (imageTranslationChecked.value) form.additionalRequirements.push('imageTranslation');
+  if (customChecked.value) form.additionalRequirements.push('custom');
+  
   submitting.value = true;
   console.log('Submitting form with data:', form);
   
@@ -359,6 +383,7 @@ const handleSubmit = async () => {
       targetLanguages: form.targetLanguages,
       wordCount: form.wordCount,
       additionalRequirements: form.additionalRequirements,
+      customRequirements: form.customRequirements,
       expectedDeliveryDate: formatDate(form.expectedDeliveryDate),
       fileIds: validFileIds // 使用处理后的有效文件ID列表
     };
@@ -459,6 +484,12 @@ const resetForm = () => {
   form.wordCount = 0;
   form.additionalRequirements = [];
   form.expectedDeliveryDate = null;
+  form.customRequirements = '';
+  
+  // 重置勾选框状态
+  lqaChecked.value = false;
+  imageTranslationChecked.value = false;
+  customChecked.value = false;
   
   // 清空文件列表
   fileList.value = [];
