@@ -5,15 +5,17 @@
         <p>No project files</p>
       </div>
       <div v-else>
-        <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="file-manager-toolbar">
           <a-button type="primary" @click="downloadAllFiles" :loading="downloadingFiles">
+            <template #icon><icon-download /></template>
             Download All Files
           </a-button>
-          <a-button type="primary" @click="refreshFiles" :loading="refreshingFiles">
+          <a-button type="outline" @click="refreshFiles" :loading="refreshingFiles">
+            <template #icon><icon-refresh /></template>
             Refresh Files
           </a-button>
         </div>
-        <a-timeline>
+        <a-timeline class="file-timeline">
           <a-timeline-item 
             v-for="fileGroup in projectFiles" 
             :key="fileGroup.id"
@@ -22,65 +24,66 @@
             <template #dot>
               <icon-file />
             </template>
-            <div class="file-group-header">
-              <h4>{{ getFileTypeText(fileGroup.fileType) }}</h4>
-              <a-button 
-                type="primary" 
-                status="danger"
-                size="mini"
-                @click="confirmDeleteFileGroup(fileGroup)"
-                :loading="fileGroup.deleting"
-              >
-                <template #icon><icon-delete /></template>
-                Delete Group
-              </a-button>
-            </div>
-            <p v-if="fileGroup.description">{{ fileGroup.description }}</p>
-            <a-space direction="vertical" style="width: 100%;">
-              <template v-if="fileGroup.fileList && fileGroup.fileList.length > 0">
-                <a-card 
-                  v-for="file in fileGroup.fileList" 
-                  :key="file.id || 'unknown'"
-                  hoverable
-                  size="small"
-                  style="margin-bottom: 8px;"
+            <div class="file-group" :class="{'source-files-group': fileGroup.fileType === 'source'}">
+              <div class="file-group-header">
+                <h4>{{ getFileTypeText(fileGroup.fileType) }}</h4>
+                <a-button 
+                  type="primary" 
+                  status="danger"
+                  size="mini"
+                  @click="confirmDeleteFileGroup(fileGroup)"
+                  :loading="fileGroup.deleting"
                 >
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                      <span>{{ file.name || file.filename || 'Unknown File' }}</span>
-                      <div v-if="file.created_at" style="font-size: 12px; color: #999;">
-                        {{ new Date(file.created_at).toLocaleString() }}
+                  <template #icon><icon-delete /></template>
+                  Delete Group
+                </a-button>
+              </div>
+              <p v-if="fileGroup.description" class="file-group-description">{{ fileGroup.description }}</p>
+              <a-space direction="vertical" style="width: 100%;">
+                <template v-if="fileGroup.fileList && fileGroup.fileList.length > 0">
+                  <a-card 
+                    v-for="file in fileGroup.fileList" 
+                    :key="file.id || 'unknown'"
+                    hoverable
+                    size="small"
+                    class="file-card"
+                  >
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <div class="file-info">
+                        <span class="file-name">{{ file.name || file.filename || 'Unknown File' }}</span>
+                        <div v-if="file.created_at" class="file-date">
+                          {{ new Date(file.created_at).toLocaleString() }}
+                        </div>
+                      </div>
+                      <div class="file-actions">
+                        <a-button 
+                          type="outline" 
+                          size="mini"
+                          @click="downloadFile(file.url, file.name || file.filename, file)"
+                          :loading="file.downloading"
+                        >
+                          <template #icon><icon-download /></template>
+                          Download
+                        </a-button>
+                        <a-button 
+                          type="outline" 
+                          status="danger"
+                          size="mini"
+                          @click="confirmDeleteFile(file, fileGroup)"
+                          :loading="file.deleting"
+                        >
+                          <template #icon><icon-delete /></template>
+                          Delete
+                        </a-button>
                       </div>
                     </div>
-                    <div class="file-actions">
-                      <a-button 
-                        type="primary" 
-                        size="mini"
-                        @click="downloadFile(file.url, file.name || file.filename, file)"
-                        :loading="file.downloading"
-                        style="margin-right: 8px;"
-                      >
-                        <template #icon><icon-download /></template>
-                        Download
-                      </a-button>
-                      <a-button 
-                        type="primary" 
-                        status="danger"
-                        size="mini"
-                        @click="confirmDeleteFile(file, fileGroup)"
-                        :loading="file.deleting"
-                      >
-                        <template #icon><icon-delete /></template>
-                        Delete
-                      </a-button>
-                    </div>
-                  </div>
-                </a-card>
-              </template>
-              <template v-else>
-                <p style="color: #999;">Empty or invalid file list</p>
-              </template>
-            </a-space>
+                  </a-card>
+                </template>
+                <template v-else>
+                  <p style="color: #999;">Empty or invalid file list</p>
+                </template>
+              </a-space>
+            </div>
           </a-timeline-item>
         </a-timeline>
       </div>
@@ -144,7 +147,7 @@
 import { ref, computed, defineProps, defineEmits } from 'vue';
 import { Message, Modal } from '@arco-design/web-vue';
 import axios from 'axios';
-import { IconFile, IconDownload, IconDelete } from '@arco-design/web-vue/es/icon';
+import { IconFile, IconDownload, IconDelete, IconRefresh } from '@arco-design/web-vue/es/icon';
 import { getFileTypeText } from './utils/projectUtils';
 
 const props = defineProps({
@@ -260,13 +263,19 @@ const loadProjectFiles = async (projectId) => {
         if (fileGroup.notes) {
           const notesText = fileGroup.notes.toString();
           // 移除自动修复文本
-          if (!notesText.includes('自动修复创建的文件组') && !notesText.includes('Auto-fixed file group')) {
+          if (!notesText.includes('自动修复创建的文件组') && 
+              !notesText.includes('Auto-fixed file group') && 
+              !notesText.includes('自动修复的文件关联') && 
+              !notesText.includes('Auto-fixed file association')) {
             processedFileGroup.description = notesText;
           }
         } else if (fileGroup.description) {
           const descText = fileGroup.description.toString();
           // 移除自动修复文本
-          if (!descText.includes('自动修复创建的文件组') && !descText.includes('Auto-fixed file group')) {
+          if (!descText.includes('自动修复创建的文件组') && 
+              !descText.includes('Auto-fixed file group') && 
+              !descText.includes('自动修复的文件关联') && 
+              !descText.includes('Auto-fixed file association')) {
             processedFileGroup.description = descText;
           }
         } else {
@@ -1323,6 +1332,66 @@ defineExpose({
   width: 100%;
 }
 
+.file-manager-toolbar {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.file-timeline {
+  margin-bottom: 16px;
+}
+
+.file-group {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 6px;
+  background-color: var(--color-bg-2);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.source-files-group {
+  background-color: #f5f5f5;
+}
+
+.file-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-2);
+}
+
+.file-group-description {
+  margin-bottom: 12px;
+  color: var(--color-text-3);
+  font-size: 14px;
+}
+
+.file-card {
+  margin-bottom: 12px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.file-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.file-date {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
 .file-actions {
   display: flex;
   align-items: center;
@@ -1336,35 +1405,7 @@ defineExpose({
 
 :deep(.arco-card:hover) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-/* 文件组标题栏 */
-.file-group-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-/* 删除按钮动画 */
-:deep(.arco-btn-status-danger) {
-  opacity: 0.85;
-  transition: all 0.3s ease;
-}
-
-:deep(.arco-btn-status-danger:hover) {
-  opacity: 1;
-  transform: scale(1.05);
-}
-
-/* 下载按钮动画 */
-:deep(.arco-btn-primary) {
-  transition: all 0.3s ease;
-}
-
-:deep(.arco-btn-primary:hover) {
-  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* 文件删除和添加的过渡动画 */

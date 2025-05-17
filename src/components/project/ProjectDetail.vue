@@ -317,9 +317,9 @@
                 @refresh-files="handleFilesRefreshed"
               />
               
-              <!-- 上传/下载文件按钮 -->
-              <div class="file-operation-buttons">
-                <a-button type="primary" @click="openUploadModal" :disabled="!isEditing">
+              <!-- 上传文件按钮放在底部，只有编辑模式才显示 -->
+              <div class="file-operation-buttons" v-if="isEditing">
+                <a-button type="primary" @click="openUploadModal">
                   <template #icon><icon-upload /></template>
                   Upload Files
                 </a-button>
@@ -327,22 +327,25 @@
             </div>
           </a-tab-pane>
         </a-tabs>
-        
-        <div class="drawer-footer" style="margin-top: 24px; text-align: right;">
-          <a-space>
-            <!-- Save按钮已移除 -->
-            <a-button 
-              v-if="props.userRole === 'LM'" 
-              type="primary" 
-              status="danger" 
-              @click="confirmDeleteProject"
-            >
-              <template #icon><icon-delete /></template>
-              Delete Project
-            </a-button>
-          </a-space>
-        </div>
       </div>
+      
+      <!-- 使用footer插槽来自定义底部按钮区域 -->
+      <template #footer>
+        <a-space>
+          <!-- Delete Project按钮放在左侧 -->
+          <a-button 
+            v-if="props.userRole === 'LM'" 
+            type="primary" 
+            status="danger" 
+            @click="confirmDeleteProject"
+          >
+            <template #icon><icon-delete /></template>
+            Delete Project
+          </a-button>
+          <a-button @click="closeDrawer">Cancel</a-button>
+          <a-button type="primary" @click="saveProject" :disabled="!isEditing">Confirm</a-button>
+        </a-space>
+      </template>
     </a-drawer>
   </div>
 </template>
@@ -362,7 +365,7 @@ import {
   formatDate 
 } from './utils/projectUtils';
 import FileManager from './FileManager.vue'; // 导入FileManager组件
-import { IconDelete } from '@arco-design/web-vue/es/icon';
+import { IconDelete, IconUpload } from '@arco-design/web-vue/es/icon';
 
 const props = defineProps({
   userRole: {
@@ -1613,6 +1616,14 @@ defineExpose({
 
 .project-files-container {
   margin-top: 16px;
+}
+
+.file-operation-buttons {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px;
+  border-top: 1px solid var(--color-border);
 }
 
 .upload-button-container {

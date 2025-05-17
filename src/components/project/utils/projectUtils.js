@@ -314,12 +314,12 @@ export const canPerformAction = (project, userId, userRole) => {
  */
 export const getFileTypeText = (fileType) => {
   const typeMap = {
-    source: '源文件 / Source Files',
-    translation: '翻译文件 / Translation Files',
-    lqa: 'LQA报告 / LQA Reports',
-    other: '其他文件 / Other Files'
+    source: 'Source Files',
+    translation: 'Translation Files',
+    lqa: 'LQA Reports',
+    other: 'Other Files'
   };
-  return typeMap[fileType] || '未知类型 / Unknown Type';
+  return typeMap[fileType] || 'Unknown Type';
 };
 
 /**

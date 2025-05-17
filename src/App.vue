@@ -541,7 +541,6 @@ export default defineComponent({
       // 检查权限
       if (hasPermission(targetPage)) {
         currentPage.value = targetPage;
-        Message.info({ content: `You select ${key}`, showIcon: true });
         
         // 如果切换到项目管理页面，刷新项目数据
         if (targetPage === 'project_management' && isLoggedIn.value) {

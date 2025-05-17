@@ -49,8 +49,11 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SECRET_KEY'] = 'lingoflows_secret_key'
 app.config['JWT_EXPIRATION_DELTA'] = timedelta(days=1)
 
-# 正确配置CORS，允许所有来源
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+# 配置CORS，允许所有来源，包括认证请求
+CORS(app, resources={r"/api/*": {"origins": "*"}}, 
+     supports_credentials=True, 
+     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 # 配置 MySQL 数据库连接
 db = pymysql.connect(
@@ -844,7 +847,7 @@ def create_request():
                         ) VALUES (%s, %s, %s, %s, %s, %s)
                         """
                         cur.execute(sql, (
-                            project_id, 'source', '请求提交时上传的文件 / Files uploaded with request submission', 
+                            project_id, 'source', 'Files uploaded with request submission', 
                             files_str, datetime.now(), user_id
                         ))
                     else:
@@ -855,7 +858,7 @@ def create_request():
                         ) VALUES (%s, %s, %s, %s, %s)
                         """
                         cur.execute(sql, (
-                            project_id, 'source', '请求提交时上传的文件 / Files uploaded with request submission', 
+                            project_id, 'source', 'Files uploaded with request submission', 
                             datetime.now(), user_id
                         ))
                     
@@ -1149,7 +1152,7 @@ def get_project_files(project_id):
             
             if not project:
                 logger.warning(f"用户 {user_id} 尝试访问不存在或无权限的项目 {project_id}")
-                return jsonify({"error": "项目不存在或您没有访问权限"}), 404
+                return jsonify({"error": "Project not found or you don't have permission"}), 404
             
             logger.info(f"用户 {user_id} 有权限访问项目 {project_id}")
             
@@ -2097,12 +2100,12 @@ def export_quotes():
         user_role = request.user.get('role')
         
         if user_role not in ['FT', 'LM', 'PM']:
-            return jsonify({'error': '权限不足，只有财务团队、本地化经理或项目经理可以导出报价 / Permission denied'}), 403
+            return jsonify({'error': 'Permission denied: Only Financial Team, Localization Manager or Project Manager can export quotes'}), 403
         
         # 获取项目ID
         project_id = request.args.get('projectId')
         if not project_id:
-            return jsonify({'error': '缺少项目ID / Missing project ID'}), 400
+            return jsonify({'error': 'Missing project ID'}), 400
         
         # 连接数据库
         conn = get_db_connection()
@@ -2117,7 +2120,7 @@ def export_quotes():
         if not project:
             cursor.close()
             conn.close()
-            return jsonify({'error': '项目不存在 / Project not found'}), 404
+            return jsonify({'error': 'Project not found'}), 404
         
         # 获取项目任务分配情况
         cursor.execute('''
@@ -2155,32 +2158,32 @@ def export_quotes():
         )
         
         # 添加项目基本信息到总览表
-        overview_sheet.append(["项目信息 / Project Information", ""])
-        overview_sheet.append(["项目名称 / Project Name", project['projectName']])
-        overview_sheet.append(["项目状态 / Project Status", project['projectStatus']])
-        overview_sheet.append(["请求名称 / Request Name", project['requestName']])
-        overview_sheet.append(["项目经理 / Project Manager", project['projectManager']])
-        overview_sheet.append(["创建时间 / Create Time", project['createTime'].strftime('%Y-%m-%d %H:%M:%S') if project['createTime'] else 'N/A'])
-        overview_sheet.append(["源语言 / Source Language", project['sourceLanguage']])
-        overview_sheet.append(["目标语言 / Target Languages", project['targetLanguages']])
-        overview_sheet.append(["字数 / Word Count", project['wordCount']])
+        overview_sheet.append(["Project Information", ""])
+        overview_sheet.append(["Project Name", project['projectName']])
+        overview_sheet.append(["Project Status", project['projectStatus']])
+        overview_sheet.append(["Request Name", project['requestName']])
+        overview_sheet.append(["Project Manager", project['projectManager']])
+        overview_sheet.append(["Create Time", project['createTime'].strftime('%Y-%m-%d %H:%M:%S') if project['createTime'] else 'N/A'])
+        overview_sheet.append(["Source Language", project['sourceLanguage']])
+        overview_sheet.append(["Target Languages", project['targetLanguages']])
+        overview_sheet.append(["Word Count", project['wordCount']])
         
         # 添加空行
         overview_sheet.append([])
         
         # 添加所有报价信息表头
         overview_sheet.append([
-            "任务类型 / Task Type",
-            "任务负责人 / Assignee",
-            "语言 / Language",
-            "报价金额 / Quote Amount",
-            "货币 / Currency",
-            "字数 / Word Count",
-            "单价 / Unit Price",
-            "截止日期 / Deadline",
-            "状态 / Status",
-            "备注 / Notes",
-            "文件名 / File Name"
+            "Task Type",
+            "Assignee",
+            "Language",
+            "Quote Amount",
+            "Currency",
+            "Word Count",
+            "Unit Price",
+            "Deadline",
+            "Status",
+            "Notes",
+            "File Name"
         ])
         
         # 设置表头样式
@@ -2195,10 +2198,10 @@ def export_quotes():
         row_num = 12
         for quote in quotes:
             task_type_map = {
-                'translation': '翻译任务 / Translation',
-                'lqa': 'LQA任务 / LQA',
-                'translationUpdate': '翻译更新 / Translation Update',
-                'lqaReportFinalization': 'LQA报告定稿 / LQA Report Finalization'
+                'translation': 'Translation',
+                'lqa': 'LQA',
+                'translationUpdate': 'Translation Update',
+                'lqaReportFinalization': 'LQA Report Finalization'
             }
             task_type = task_type_map.get(quote['task'], quote['task'])
             
@@ -2253,26 +2256,26 @@ def export_quotes():
             lang_sheet = workbook.create_sheet(title=f"{language}")
             
             # 添加项目基本信息
-            lang_sheet.append(["项目信息 / Project Information", ""])
-            lang_sheet.append(["项目名称 / Project Name", project['projectName']])
-            lang_sheet.append(["项目状态 / Project Status", project['projectStatus']])
-            lang_sheet.append(["语言 / Language", language])
-            lang_sheet.append(["字数 / Word Count", project['wordCount']])
+            lang_sheet.append(["Project Information", ""])
+            lang_sheet.append(["Project Name", project['projectName']])
+            lang_sheet.append(["Project Status", project['projectStatus']])
+            lang_sheet.append(["Language", language])
+            lang_sheet.append(["Word Count", project['wordCount']])
             
             lang_sheet.append([])
             
             # 添加该语言的报价信息表头
             lang_sheet.append([
-                "任务类型 / Task Type",
-                "任务负责人 / Assignee",
-                "报价金额 / Quote Amount",
-                "货币 / Currency",
-                "字数 / Word Count",
-                "单价 / Unit Price",
-                "截止日期 / Deadline",
-                "状态 / Status",
-                "备注 / Notes",
-                "文件名 / File Name"
+                "Task Type",
+                "Assignee",
+                "Quote Amount",
+                "Currency",
+                "Word Count",
+                "Unit Price",
+                "Deadline",
+                "Status",
+                "Notes",
+                "File Name"
             ])
             
             # 设置表头样式
@@ -2290,10 +2293,10 @@ def export_quotes():
             row_num = 8
             for quote in language_quotes:
                 task_type_map = {
-                    'translation': '翻译任务 / Translation',
-                    'lqa': 'LQA任务 / LQA',
-                    'translationUpdate': '翻译更新 / Translation Update',
-                    'lqaReportFinalization': 'LQA报告定稿 / LQA Report Finalization'
+                    'translation': 'Translation',
+                    'lqa': 'LQA',
+                    'translationUpdate': 'Translation Update',
+                    'lqaReportFinalization': 'LQA Report Finalization'
                 }
                 task_type = task_type_map.get(quote['task'], quote['task'])
                 
@@ -2358,9 +2361,238 @@ def export_quotes():
     
     except Exception as e:
         print(f"Error exporting quotes: {str(e)}")
-        return jsonify({'error': f'导出报价信息失败: {str(e)} / Export failed: {str(e)}'}), 500
+        return jsonify({'error': f'Failed to export quotes: {str(e)}'}), 500
 
+# 添加修复文件映射的API端点
+@app.route('/api/fix-file-mappings', methods=['POST'])
+@token_required
+def fix_file_mappings():
+    """修复文件映射关系，解决文件上传后未显示在项目中的问题"""
+    try:
+        # 提取请求数据
+        data = request.json if request.is_json else {}
+        user_id = request.user.get('user_id') or request.user.get('id')
+        user_role = request.user.get('role')
+        
+        # 指定要修复的项目ID (如果提供)
+        project_id = data.get('projectId')
+        
+        logger.info(f"开始修复文件映射，用户ID: {user_id}, 角色: {user_role}, 项目ID: {project_id}")
+        
+        with db.cursor() as cur:
+            fixed_count = 0
+            
+            # 获取用户上传的文件
+            if project_id:
+                # 如果指定了项目ID，仅修复该项目的文件
+                # 首先检查用户是否有权限访问此项目
+                if user_role in ['LM', 'FT']:
+                    cur.execute("SELECT id FROM projectname WHERE id = %s", (project_id,))
+                else:
+                    cur.execute("SELECT id FROM projectname WHERE id = %s AND created_by = %s", (project_id, user_id))
+                
+                project = cur.fetchone()
+                if not project:
+                    response = jsonify({"error": "Project not found or you don't have permission"})
+                    # 添加CORS头
+                    response.headers.add('Access-Control-Allow-Origin', '*')
+                    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+                    return response, 404
+                
+                # 获取该用户上传的且没有映射关系的文件
+                cur.execute("""
+                    SELECT f.id, f.filename, f.originalName, f.uploadTime
+                    FROM files f
+                    LEFT JOIN project_file_mappings pfm ON f.id = pfm.file_id
+                    LEFT JOIN project_files pf ON pfm.project_file_id = pf.id AND pf.projectId = %s
+                    WHERE f.uploaded_by = %s AND f.isDeleted = FALSE AND pfm.id IS NULL
+                    ORDER BY f.uploadTime DESC
+                """, (project_id, user_id))
+            else:
+                # 没有指定项目ID，获取所有未映射的文件
+                cur.execute("""
+                    SELECT f.id, f.filename, f.originalName, f.uploadTime
+                    FROM files f
+                    LEFT JOIN project_file_mappings pfm ON f.id = pfm.file_id
+                    WHERE f.uploaded_by = %s AND f.isDeleted = FALSE AND pfm.id IS NULL
+                    ORDER BY f.uploadTime DESC
+                """, (user_id,))
+            
+            unmapped_files = cur.fetchall()
+            logger.info(f"找到 {len(unmapped_files)} 个未映射的文件")
+            
+            if not unmapped_files:
+                response = jsonify({"message": "No files need to be fixed", "fixed_count": 0})
+                # 添加CORS头
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+                return response
+            
+            # 如果指定了项目ID，使用该项目
+            if project_id:
+                # 查找该项目的现有项目文件记录
+                cur.execute("""
+                    SELECT id FROM project_files 
+                    WHERE projectId = %s AND fileType = 'source'
+                    ORDER BY uploadTime DESC LIMIT 1
+                """, (project_id,))
+                
+                project_file = cur.fetchone()
+                
+                if project_file:
+                    # 使用现有的项目文件记录
+                    project_file_id = project_file['id']
+                    logger.info(f"使用现有项目文件记录ID: {project_file_id}")
+                else:
+                    # 创建新的项目文件记录
+                    file_names = [f['originalName'] for f in unmapped_files]
+                    files_str = ', '.join(file_names)
+                    
+                    cur.execute("""
+                        INSERT INTO project_files 
+                        (projectId, fileType, notes, files, uploadTime, created_by)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (
+                        project_id, 
+                        'source', 
+                        '', 
+                        files_str, 
+                        datetime.now(), 
+                        user_id
+                    ))
+                    db.commit()
+                    project_file_id = cur.lastrowid
+                    logger.info(f"创建新项目文件记录ID: {project_file_id}")
+                
+                # 为每个未映射的文件创建映射
+                for file in unmapped_files:
+                    try:
+                        cur.execute("""
+                            INSERT INTO project_file_mappings 
+                            (project_file_id, file_id)
+                            VALUES (%s, %s)
+                        """, (project_file_id, file['id']))
+                        fixed_count += 1
+                        logger.info(f"创建映射: 项目文件ID {project_file_id} -> 文件ID {file['id']} (文件名: {file['originalName']})")
+                    except Exception as e:
+                        logger.error(f"创建映射时出错: {str(e)}")
+                
+                db.commit()
+                logger.info(f"已修复 {fixed_count} 个文件映射")
+                
+                response = jsonify({
+                    "message": f"Successfully fixed {fixed_count} file mappings",
+                    "fixed_count": fixed_count,
+                    "project_id": project_id,
+                    "project_file_id": project_file_id
+                })
+                # 添加CORS头
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+                return response
+            else:
+                # 未指定项目ID，尝试为每个文件找到合适的项目
+                # 按上传者分组文件
+                files_by_uploader = {}
+                for file in unmapped_files:
+                    if file['uploaded_by'] not in files_by_uploader:
+                        files_by_uploader[file['uploaded_by']] = []
+                    files_by_uploader[file['uploaded_by']].append(file)
+                
+                # 处理每个上传者的文件
+                for uploader_id, files_group in files_by_uploader.items():
+                    # 查找该用户最近的项目
+                    cur.execute("""
+                        SELECT id FROM projectname 
+                        WHERE created_by = %s 
+                        ORDER BY createTime DESC LIMIT 1
+                    """, (uploader_id,))
+                    
+                    user_project = cur.fetchone()
+                    if not user_project:
+                        logger.warning(f"用户 {uploader_id} 没有关联的项目，跳过其文件")
+                        continue
+                    
+                    user_project_id = user_project['id']
+                    logger.info(f"找到用户 {uploader_id} 的最近项目ID: {user_project_id}")
+                    
+                    # 查找该项目的现有项目文件记录
+                    cur.execute("""
+                        SELECT id FROM project_files 
+                        WHERE projectId = %s AND fileType = 'source'
+                        ORDER BY uploadTime DESC LIMIT 1
+                    """, (user_project_id,))
+                    
+                    project_file = cur.fetchone()
+                    
+                    if project_file:
+                        # 使用现有的项目文件记录
+                        project_file_id = project_file['id']
+                        logger.info(f"使用现有项目文件记录ID: {project_file_id}")
+                    else:
+                        # 创建新的项目文件记录
+                        file_names = [f['originalName'] for f in files_group]
+                        files_str = ', '.join(file_names)
+                        
+                        cur.execute("""
+                            INSERT INTO project_files 
+                            (projectId, fileType, notes, files, uploadTime, created_by)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (
+                            user_project_id, 
+                            'source', 
+                            '', 
+                            files_str, 
+                            datetime.now(), 
+                            uploader_id
+                        ))
+                        db.commit()
+                        project_file_id = cur.lastrowid
+                        logger.info(f"创建新项目文件记录ID: {project_file_id}")
+                    
+                    # 为每个未映射的文件创建映射
+                    for file in files_group:
+                        try:
+                            cur.execute("""
+                                INSERT INTO project_file_mappings 
+                                (project_file_id, file_id)
+                                VALUES (%s, %s)
+                            """, (project_file_id, file['id']))
+                            fixed_count += 1
+                            logger.info(f"创建映射: 项目文件ID {project_file_id} -> 文件ID {file['id']} (文件名: {file['originalName']})")
+                        except Exception as e:
+                            logger.error(f"创建映射时出错: {str(e)}")
+                    
+                    db.commit()
+                
+                logger.info(f"总共修复了 {fixed_count} 个文件映射")
+                
+                response = jsonify({
+                    "message": f"Successfully fixed {fixed_count} file mappings",
+                    "fixed_count": fixed_count
+                })
+                # 添加CORS头
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+                return response
+    
+    except Exception as e:
+        logger.error(f"修复文件映射时出错: {str(e)}")
+        logger.error(traceback.format_exc())
+        response = jsonify({"error": f"Failed to fix file mappings: {str(e)}"})
+        # 添加CORS头
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        return response, 500
 
+# 在token_required装饰器上面添加一个预检请求处理器
+@app.route('/api/fix-file-mappings', methods=['OPTIONS'])
+def handle_fix_file_mappings_preflight():
+    response = make_response()
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 if __name__ == '__main__':
     logger.info("==========================================")
