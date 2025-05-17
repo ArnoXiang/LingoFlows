@@ -1399,23 +1399,67 @@ def create_quote():
         notes = data.get('notes', '')
         file_id = data.get('fileId')
         status = data.get('status', 'pending')
+        extracted_info = data.get('extractedInfo')
         
         # 创建任务报价记录
         with db.cursor() as cur:
-            sql = """
-            INSERT INTO task_quotes (
-                projectId, task, assignee, language, quoteAmount, 
-                currency, wordCount, unitPrice, deadline, notes, 
-                fileId, status, createTime, created_by
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            cur.execute(sql, (
-                project_id, task, assignee, language, quote_amount,
-                currency, word_count, unit_price, deadline, notes,
-                file_id, status, datetime.now(), user_id
-            ))
-            db.commit()
-            quote_id = cur.lastrowid
+            # 先检查task_quotes表是否有extractedInfo列
+            try:
+                cur.execute("SHOW COLUMNS FROM task_quotes LIKE 'extractedInfo'")
+                has_extracted_info_column = cur.fetchone() is not None
+                
+                if not has_extracted_info_column:
+                    # 添加extractedInfo列
+                    logger.info("向task_quotes表添加extractedInfo列...")
+                    cur.execute("ALTER TABLE task_quotes ADD COLUMN extractedInfo TEXT")
+                    db.commit()
+                    logger.info("成功添加extractedInfo列到task_quotes表")
+            except Exception as e:
+                logger.error(f"检查或添加extractedInfo列时出错: {e}")
+                # 继续执行，只是不使用extractedInfo字段
+            
+            # 再次检查extractedInfo列是否存在
+            try:
+                cur.execute("SHOW COLUMNS FROM task_quotes LIKE 'extractedInfo'")
+                has_extracted_info_column = cur.fetchone() is not None
+                
+                if has_extracted_info_column:
+                    # 如果列存在，使用包含extractedInfo的SQL
+                    sql = """
+                    INSERT INTO task_quotes (
+                        projectId, task, assignee, language, quoteAmount, 
+                        currency, wordCount, unitPrice, deadline, notes, 
+                        fileId, status, createTime, created_by, extractedInfo
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    cur.execute(sql, (
+                        project_id, task, assignee, language, quote_amount,
+                        currency, word_count, unit_price, deadline, notes,
+                        file_id, status, datetime.now(), user_id, extracted_info
+                    ))
+                else:
+                    # 如果列不存在，使用不包含extractedInfo的SQL
+                    sql = """
+                    INSERT INTO task_quotes (
+                        projectId, task, assignee, language, quoteAmount, 
+                        currency, wordCount, unitPrice, deadline, notes, 
+                        fileId, status, createTime, created_by
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    cur.execute(sql, (
+                        project_id, task, assignee, language, quote_amount,
+                        currency, word_count, unit_price, deadline, notes,
+                        file_id, status, datetime.now(), user_id
+                    ))
+                
+                db.commit()
+                quote_id = cur.lastrowid
+                
+                logger.info(f"任务报价创建成功，ID: {quote_id}")
+            except Exception as e:
+                logger.error(f"创建任务报价时出错: {e}")
+                db.rollback()
+                return jsonify({"error": f"Failed to create task quote: {str(e)}"}), 500
         
         return jsonify({"id": quote_id, "message": "Task quote created successfully"}), 201
     else:
@@ -2001,6 +2045,7 @@ def init_db():
                   deadline DATE,
                   notes TEXT,
                   fileId INT,
+                  extractedInfo TEXT,
                   status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
                   createTime DATETIME NOT NULL,
                   created_by INT NOT NULL,
@@ -2021,6 +2066,19 @@ def init_db():
         else:
             logger.info("task_quotes表已存在，无需创建")
             
+            # 检查是否存在extractedInfo列
+            try:
+                cur.execute("SHOW COLUMNS FROM task_quotes LIKE 'extractedInfo'")
+                has_extracted_info = cur.fetchone() is not None
+                if not has_extracted_info:
+                    logger.info("向现有task_quotes表添加extractedInfo列")
+                    cur.execute("ALTER TABLE task_quotes ADD COLUMN extractedInfo TEXT")
+                    db.commit()
+                    logger.info("成功添加extractedInfo列到现有task_quotes表")
+            except Exception as e:
+                logger.error(f"检查或添加extractedInfo列时出错: {e}")
+                # 继续执行，不阻止其他操作
+        
         # 创建视图，用于查询报价详情
         cur.execute("SHOW TABLES LIKE 'task_quotes_view'")
         if not cur.fetchone():
@@ -2593,6 +2651,88 @@ def handle_fix_file_mappings_preflight():
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
+
+# 获取项目报价列表
+@app.route('/api/projects/<int:project_id>/quotes', methods=['GET'])
+@token_required
+def get_project_quotes(project_id):
+    try:
+        # 验证用户权限
+        user_role = request.user.get('role')
+        if user_role not in ['PM', 'LM', 'FT']:
+            return jsonify({'error': 'Permission denied'}), 403
+        
+        # 从数据库获取项目报价列表
+        with db.cursor(dictionary=True) as cur:
+            cur.execute("""
+                SELECT tq.*, f.originalName as fileName, f.fileSize, f.mimeType
+                FROM task_quotes tq
+                LEFT JOIN files f ON tq.fileId = f.id
+                WHERE tq.projectId = %s
+                ORDER BY tq.createTime DESC
+            """, (project_id,))
+            quotes = cur.fetchall()
+            
+            # 处理日期格式，使其可JSON序列化
+            for quote in quotes:
+                if quote.get('deadline') and isinstance(quote['deadline'], date):
+                    quote['deadline'] = quote['deadline'].isoformat()
+                if quote.get('createTime') and isinstance(quote['createTime'], datetime):
+                    quote['createTime'] = quote['createTime'].isoformat()
+                
+                # 检查是否有提取的特定列数据
+                if quote.get('extractedInfo'):
+                    # 尝试解析JSON数据，如果失败则保留原始字符串
+                    try:
+                        quote['hasExtractedInfo'] = True
+                    except:
+                        quote['hasExtractedInfo'] = True
+                else:
+                    quote['hasExtractedInfo'] = False
+            
+            return jsonify(quotes), 200
+                
+    except Exception as e:
+        logger.error(f"Error getting project quotes: {str(e)}")
+        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
+
+# 获取特定报价的提取数据
+@app.route('/api/quotes/<int:quote_id>/extracted-info', methods=['GET'])
+@token_required
+def get_quote_extracted_info(quote_id):
+    try:
+        # 验证用户权限
+        user_role = request.user.get('role')
+        if user_role not in ['PM', 'LM', 'FT']:
+            return jsonify({'error': 'Permission denied'}), 403
+        
+        # 从数据库获取报价的extractedInfo
+        with db.cursor(dictionary=True) as cur:
+            cur.execute("""
+                SELECT extractedInfo FROM task_quotes WHERE id = %s
+            """, (quote_id,))
+            result = cur.fetchone()
+            
+            if not result:
+                return jsonify({'error': 'Quote not found'}), 404
+            
+            extracted_info = result.get('extractedInfo')
+            
+            # 如果没有提取数据
+            if not extracted_info:
+                return jsonify({'extractedInfo': []}), 200
+            
+            # 尝试解析JSON数据
+            try:
+                extracted_info_json = json.loads(extracted_info)
+                return jsonify({'extractedInfo': extracted_info_json}), 200
+            except Exception as e:
+                # 如果JSON解析失败，返回原始字符串
+                return jsonify({'extractedInfo': extracted_info, 'error': 'Failed to parse JSON'}), 200
+                
+    except Exception as e:
+        logger.error(f"Error getting quote extracted info: {str(e)}")
+        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
 if __name__ == '__main__':
     logger.info("==========================================")

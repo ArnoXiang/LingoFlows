@@ -97,8 +97,8 @@
             :headers="uploadHeaders"
             :limit="1"
             accept=".xls,.xlsx,.csv,.pdf,.doc,.docx"
-            :auto-upload="false"
-            ref="uploadRef"
+            :show-upload-button="true"
+            @before-upload="handleBeforeUpload"
           >
             <template #upload-button>
               <a-button type="primary">
@@ -106,14 +106,6 @@
               </a-button>
             </template>
           </a-upload>
-          <a-button 
-            type="secondary" 
-            style="margin-top: 8px;" 
-            @click="manualUpload"
-            v-if="fileList && fileList.length > 0"
-          >
-            Manual Upload
-          </a-button>
         </a-form-item>
         
         <!-- 自动提取报价信息按钮 -->
@@ -144,6 +136,24 @@
         <a-form-item field="notes" label="Notes">
           <a-textarea v-model="quoteForm.notes" placeholder="Notes" :auto-size="{ minRows: 3, maxRows: 5 }" />
         </a-form-item>
+        
+        <!-- 提取的特定列数据 -->
+        <div v-if="extractedQuoteInfo.length > 0" class="extracted-quote-info">
+          <h3>Extracted Quote Information</h3>
+          <a-table 
+            :columns="extractedInfoColumns" 
+            :data="extractedQuoteInfo" 
+            :bordered="true" 
+            :pagination="false"
+          >
+            <template #footer>
+              <div v-if="grandTotal > 0" class="grand-total-row">
+                <div class="grand-total-label">Grand Total in USD</div>
+                <div class="grand-total-value">${{ grandTotal.toFixed(2) }}</div>
+              </div>
+            </template>
+          </a-table>
+        </div>
       </a-form>
     </a-modal>
   </div>
@@ -179,6 +189,7 @@ const fileList = ref([]);
 const uploadedFileId = ref(null);
 const extractedTableData = ref([]);
 const grandTotal = ref(0);
+const extractedQuoteInfo = ref([]);
 
 // 表单数据
 const quoteForm = reactive({
@@ -195,7 +206,15 @@ const quoteForm = reactive({
 });
 
 // 表格列定义
-const extractedColumns = [
+const extractedColumns = {
+  columnA: [],
+  columnB: [],
+  columnL: [],
+  columnM: []
+};
+
+// 特定列数据表格列定义
+const extractedInfoColumns = [
   { title: 'Source Language', dataIndex: 'sourceLanguage' },
   { title: 'Target Language', dataIndex: 'targetLanguage' },
   { title: 'Total Word Count', dataIndex: 'totalWordCount' },
@@ -276,54 +295,43 @@ const resetForm = () => {
   uploadedFileId.value = null;
   extractedTableData.value = [];
   grandTotal.value = 0;
+  extractedQuoteInfo.value = [];
 };
 
 // 处理文件上传
 const handleFileChange = (file) => {
-  // 直接输出完整的file对象，查看其结构
-  console.log('File change event:', file);
-  
   // 检查file参数是否是事件对象或文件数组
   if (file && file.fileList) {
-    console.log('File list:', file.fileList);
-    
+    console.log('Received fileList event:', file.fileList);
     // 处理Arco Design的事件对象
     fileList.value = file.fileList;
-    
-    // 立即尝试保存文件引用 - 即使状态不是"done"
-    file.fileList.forEach(fileItem => {
-      if (fileItem.originFile) {
-        console.log('Saving original file from fileList');
-        window._originalQuoteFile = fileItem.originFile;
-      } else if (fileItem.file) {
-        console.log('Saving file property from fileList');
-        window._originalQuoteFile = fileItem.file;
-      }
-    });
-    
     // 检查是否有已完成上传的文件
     const completedFile = file.fileList.find(f => f.status === 'done');
     if (completedFile && completedFile.response && completedFile.response.file_id) {
       uploadedFileId.value = completedFile.response.file_id;
       console.log('Set uploadedFileId from fileList:', uploadedFileId.value);
+      
+      // 同时保存原始文件对象以便本地处理
+      if (completedFile.originFile) {
+        window._originalQuoteFile = completedFile.originFile;
+        console.log('Saved original file from fileList for local processing');
+      } else if (file.fileList.length > 0 && file.fileList[0].originFile) {
+        // 如果completedFile没有originFile，尝试从第一个文件获取
+        window._originalQuoteFile = file.fileList[0].originFile;
+        console.log('Saved first file from fileList for local processing');
+      } else if (file.fileList.length > 0 && file.fileList[0].raw) {
+        // 尝试获取raw属性（有些UI库使用raw而不是originFile）
+        window._originalQuoteFile = file.fileList[0].raw;
+        console.log('Saved raw file from fileList for local processing');
+      }
     }
     return;
   }
   
   // 正常处理单个文件状态变化
-  console.log('Processing single file:', file);
-  
-  // 尝试保存所有可能的文件引用
-  if (file.originFile) {
-    console.log('Saving originFile reference');
-    window._originalQuoteFile = file.originFile;
-  } else if (file.file) {
-    console.log('Saving file reference');
-    window._originalQuoteFile = file.file;
-  } else if (file instanceof File) {
-    console.log('Saving direct File instance');
-    window._originalQuoteFile = file;
-  }
+  console.log('File upload status changed:', file);
+  console.log('Current file status:', file.status);
+  console.log('File object:', file);
   
   if (file.status === 'done') {
     // 上传成功处理
@@ -333,14 +341,52 @@ const handleFileChange = (file) => {
       uploadedFileId.value = file.response.file_id;
       console.log('File uploaded successfully, saved file_id:', uploadedFileId.value);
       Message.success('File uploaded successfully. Click "Extract Quote Info" to process the file.');
+      
+      // 保存原始文件对象以便本地处理
+      if (file.originFile) {
+        console.log('Saving original file for local processing');
+        window._originalQuoteFile = file.originFile;
+      } else if (file.raw) {
+        // 尝试使用raw属性（有些UI库使用raw而不是originFile）
+        window._originalQuoteFile = file.raw;
+        console.log('Saving raw file for local processing');
+      }
     } else {
       console.error('Missing file_id in response:', file.response);
       Message.error('Missing file_id in server response. Will try local processing.');
+      
+      // 即使没有file_id，也保存文件对象以便本地处理
+      if (file.originFile) {
+        window._originalQuoteFile = file.originFile;
+        console.log('Saved file for local processing anyway');
+      } else if (file.raw) {
+        window._originalQuoteFile = file.raw;
+        console.log('Saved raw file for local processing anyway');
+      }
     }
   } else if (file.status === 'error') {
     // 上传错误处理
     console.error('File upload error:', file.response);
     Message.error(`Upload failed: ${file.response?.error || 'Unknown error'}. Will try local processing.`);
+    
+    // 保存文件对象以便本地处理
+    if (file.originFile) {
+      window._originalQuoteFile = file.originFile;
+      console.log('Saved file for local processing despite upload error');
+    } else if (file.raw) {
+      window._originalQuoteFile = file.raw;
+      console.log('Saved raw file for local processing despite upload error');
+    }
+  } else if (file.status === 'uploading') {
+    console.log('File uploading...');
+    // 保存文件对象
+    if (file.originFile) {
+      window._originalQuoteFile = file.originFile;
+      console.log('Saving file reference during upload');
+    } else if (file.raw) {
+      window._originalQuoteFile = file.raw;
+      console.log('Saving raw file reference during upload');
+    }
   } else if (file.status === 'removed') {
     console.log('File removed');
     // 文件被删除，清除文件ID和引用
@@ -349,370 +395,255 @@ const handleFileChange = (file) => {
   }
 };
 
-// 引用上传组件
-const uploadRef = ref(null);
-
-// 手动上传文件 - 添加按钮调用这个方法
-const manualUpload = () => {
-  console.log('Manual upload triggered');
-  console.log('Upload component reference:', uploadRef.value);
-  
-  // 检查是否有文件
-  if (fileList.value && fileList.value.length > 0) {
-    console.log('Files to upload:', fileList.value);
-    
-    // 尝试保存文件引用 - 在上传前
-    if (fileList.value[0].originFile) {
-      console.log('Saving originFile before upload');
-      window._originalQuoteFile = fileList.value[0].originFile;
-    } else if (fileList.value[0].file) {
-      console.log('Saving file before upload');
-      window._originalQuoteFile = fileList.value[0].file;
-    }
-    
-    // 调用组件的上传方法
-    if (uploadRef.value) {
-      uploadRef.value.submit();
-    }
-  } else {
-    Message.warning('Please select a file first');
-  }
+// 文件上传前处理
+const handleBeforeUpload = (file) => {
+  console.log('Before upload file:', file);
+  // 在上传前保存文件引用
+  window._originalQuoteFile = file;
+  console.log('Saved file reference before upload');
+  return true; // 允许上传继续
 };
 
-// 提取报价信息 - 添加错误处理和备用方法
+// 提取报价信息 - 添加本地处理作为备份
 const extractQuoteInfo = async () => {
-  console.log('Extract button clicked');
+  console.log("===== Extract Quote Info Debugging =====");
+  console.log("File List:", fileList.value);
+  console.log("Uploaded File ID:", uploadedFileId.value);
+  console.log("Original Quote File exists:", !!window._originalQuoteFile);
+  if (window._originalQuoteFile) {
+    console.log("Original Quote File type:", typeof window._originalQuoteFile);
+    console.log("Original Quote File name:", window._originalQuoteFile.name);
+    console.log("Original Quote File size:", window._originalQuoteFile.size);
+  }
+  console.log("======================================");
+
   extracting.value = true;
   extractedTableData.value = [];
   grandTotal.value = 0;
+  extractedQuoteInfo.value = [];
   
   try {
-    // 调试当前状态
-    console.log('Current file list:', fileList.value);
-    console.log('Saved original file:', window._originalQuoteFile);
-    
-    // 强化文件获取逻辑 - 尝试多种方式获取文件对象
-    let localFile = null;
-    
-    // 遍历所有可能包含文件的来源
-    const possibleFileSources = [
-      { name: 'Global variable', file: window._originalQuoteFile },
-      { name: 'FileList', file: fileList.value && fileList.value.length > 0 ? 
-              (fileList.value[0].originFile || fileList.value[0].file || fileList.value[0].raw) : null }
-    ];
-    
-    // 添加从上传组件获取文件的方法
-    if (uploadRef.value && uploadRef.value.$el) {
-      const fileInput = uploadRef.value.$el.querySelector('input[type="file"]');
-      if (fileInput && fileInput.files && fileInput.files.length > 0) {
-        possibleFileSources.push({ name: 'Upload input', file: fileInput.files[0] });
-      }
+    // 获取token
+    const token = localStorage.getItem('token');
+    if (!token) {
+      Message.error('Session expired, please login again');
+      extracting.value = false;
+      return;
     }
     
-    // 尝试所有文件输入框
-    const fileInputs = document.querySelectorAll('input[type="file"]');
-    fileInputs.forEach((input, index) => {
-      if (input.files && input.files.length > 0) {
-        possibleFileSources.push({ name: `File input ${index}`, file: input.files[0] });
-      }
-    });
-    
-    // 尝试所有可能的文件源
-    for (const source of possibleFileSources) {
-      if (source.file) {
-        console.log(`Found file from ${source.name}:`, source.file);
-        localFile = source.file;
-        break;
-      }
-    }
-    
-    // 如果找不到文件，给出明确的错误
-    if (!localFile) {
-      throw new Error('找不到上传的文件。请先上传文件或尝试手动上传。');
-    }
-    
-    console.log('Processing file:', localFile);
-    
-    // 检查文件类型
-    const fileName = localFile.name || '';
-    console.log('File name:', fileName);
-    
-    // 使用更安全的文件读取方法 - 包含超时保护
-    try {
-      const fileData = await readFileWithTimeout(localFile, 10000); // 10秒超时
-      console.log('File read successful, size:', fileData.byteLength);
-      
-      // 尝试使用xlsx库解析
-      const workbook = XLSX.read(fileData, { type: 'array' });
-      console.log('XLSX parse successful, sheets:', workbook.SheetNames);
-      
-      // 查找Log表或第一个表
-      const sheetName = workbook.SheetNames.includes('Log') ? 'Log' : workbook.SheetNames[0];
-      console.log('Using sheet:', sheetName);
-      
-      // 获取表格数据并加入预处理步骤
-      const sheet = workbook.Sheets[sheetName];
-      const sheetData = normalizeSheetData(XLSX.utils.sheet_to_json(sheet, { header: 1 }));
-      console.log('Sheet data has', sheetData.length, 'rows');
-      
-      // 添加数据预览，方便调试
-      displayDataPreview(sheetData);
-      
-      // 提取数据
-      const extractedData = extractDataFromSheetJson(sheetData);
-      processExtractedData(extractedData);
-    } catch (fileError) {
-      console.error('File processing error:', fileError);
-      
-      // 提供备用的数据，便于继续开发和测试
-      console.log('Using fallback data for development/testing');
-      const fallbackData = {
-        sourceLanguage: 'EN',
-        targetLanguages: ['ZH', 'JA', 'DE'],
-        wordCount: 10000,
-        weightedCount: 8500,
-        quoteAmount: 2500
-      };
-      
-      // 使用备用数据
-      processExtractedData(fallbackData);
-      
-      // 同时仍然显示错误
-      Message.warning(`文件处理出错，但使用了示例数据: ${fileError.message}`);
-    }
-  } catch (error) {
-    console.error('Error extracting quote info:', error);
-    Message.error(`提取失败: ${error.message || '未知错误'}`);
-  } finally {
-    extracting.value = false;
-  }
-};
-
-// 带超时保护的文件读取
-const readFileWithTimeout = (file, timeout) => {
-  return new Promise((resolve, reject) => {
-    // 设置超时
-    const timeoutId = setTimeout(() => {
-      reject(new Error('文件读取超时'));
-    }, timeout);
-    
-    // 创建FileReader
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      clearTimeout(timeoutId); // 清除超时
-      resolve(new Uint8Array(e.target.result));
-    };
-    
-    reader.onerror = (e) => {
-      clearTimeout(timeoutId); // 清除超时
-      reject(new Error(`文件读取错误: ${e.target.error?.message || '未知错误'}`));
-    };
-    
-    // 开始读取
-    try {
-      reader.readAsArrayBuffer(file);
-    } catch (e) {
-      clearTimeout(timeoutId);
-      reject(new Error(`无法读取文件: ${e.message}`));
-    }
-  });
-};
-
-// 规范化表格数据，处理可能的奇怪格式
-const normalizeSheetData = (jsonData) => {
-  if (!Array.isArray(jsonData)) {
-    console.warn('Sheet data is not an array');
-    return [];
-  }
-  
-  // 过滤掉空行和异常行
-  return jsonData.filter(row => Array.isArray(row) && row.length > 0)
-    .map(row => {
-      // 转换每一行的单元格，确保字符串格式一致
-      return row.map(cell => {
-        if (cell === null || cell === undefined) return '';
-        if (typeof cell === 'string') return cell.trim();
-        return cell;
-      });
-    });
-};
-
-// 添加一个函数来显示数据预览，方便调试
-const displayDataPreview = (sheetData) => {
-  console.log('===================== Sheet Data Preview =====================');
-  
-  // 显示前10行，每行最多10个单元格
-  const previewRows = sheetData.slice(0, Math.min(10, sheetData.length));
-  
-  previewRows.forEach((row, index) => {
-    const previewCells = row.slice(0, Math.min(10, row.length));
-    console.log(`Row ${index}:`, previewCells);
-    
-    // 如果行很长，指出被截断的部分
-    if (row.length > 10) {
-      console.log(`... and ${row.length - 10} more cells`);
-    }
-  });
-  
-  // 如果有很多行，指出被截断的部分
-  if (sheetData.length > 10) {
-    console.log(`... and ${sheetData.length - 10} more rows`);
-  }
-  
-  console.log('================================================================');
-};
-
-// 从Excel数据中提取信息
-const extractDataFromSheetJson = (jsonData) => {
-  console.log('Extracting data from sheet JSON');
-  // 初始化提取的数据
-  const extractedData = {
-    sourceLanguage: '',
-    targetLanguages: [],
-    wordCount: 0,
-    weightedCount: 0,
-    quoteAmount: 0
-  };
-  
-  try {
-    // 查找表头行索引（包含Source、Target等的行）
-    let headerRowIndex = -1;
-    for (let i = 0; i < jsonData.length; i++) {
-      const row = jsonData[i] || [];
-      // 检查这一行是否包含Source和Target
-      if (row.includes('Source') && row.includes('Target')) {
-        headerRowIndex = i;
-        break;
-      }
-    }
-    
-    if (headerRowIndex === -1) {
-      console.warn('Header row not found, trying alternative search');
-      // 尝试更宽松的搜索
-      for (let i = 0; i < jsonData.length; i++) {
-        const row = jsonData[i] || [];
-        const rowStr = row.join(' ').toLowerCase();
-        if (rowStr.includes('source') && rowStr.includes('target')) {
-          headerRowIndex = i;
-          break;
-        }
-      }
-    }
-    
-    console.log('Header row index:', headerRowIndex);
-    
-    // 查找Grand Total行
-    let grandTotalRowIndex = -1;
-    for (let i = 0; i < jsonData.length; i++) {
-      const row = jsonData[i] || [];
-      const rowStr = row.join(' ').toLowerCase();
-      if (rowStr.includes('grand total')) {
-        grandTotalRowIndex = i;
-        console.log('Found Grand Total row at index:', i);
+    // 检查是否有服务器端文件ID
+    if (uploadedFileId.value) {
+      console.log('Attempting to use server-side file processing');
+      try {
+        // 调用后端API解析已上传的文件
+        console.log('Calling backend API to extract data from file ID:', uploadedFileId.value);
         
-        // 尝试提取总金额 - 通常是行中的最后一个数字
-        for (let j = row.length - 1; j >= 0; j--) {
-          const cell = row[j];
-          if (typeof cell === 'number' || (typeof cell === 'string' && cell.includes('$'))) {
-            // 如果是数字，直接使用；如果是字符串，提取数字部分
-            let amount = typeof cell === 'number' ? cell : 
-                        parseFloat(cell.replace(/[^0-9.]/g, ''));
-            
-            if (!isNaN(amount) && amount > 0) {
-              extractedData.quoteAmount = amount;
-              console.log('Extracted amount:', amount);
+        const response = await axios.post(
+          'http://localhost:5000/api/quotes/extract',
+          { fileId: uploadedFileId.value },
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 30000 // 增加超时时间，因为Excel解析可能需要更长时间
+          }
+        );
+        
+        console.log('Backend extraction response:', response.data);
+        
+        // 处理后端返回的数据
+        processExtractedData(response.data);
+        return; // 成功处理后退出函数
+      } catch (apiError) {
+        console.error('Backend API error, falling back to local processing:', apiError);
+      }
+    }
+    
+    // 本地处理 - 如果没有fileId或API调用失败
+    if (!window._originalQuoteFile) {
+      console.log('No _originalQuoteFile, trying to get file from fileList');
+      // 尝试从fileList中获取文件
+      if (fileList.value && fileList.value.length > 0) {
+        const firstFile = fileList.value[0];
+        if (firstFile.originFile) {
+          window._originalQuoteFile = firstFile.originFile;
+          console.log('Retrieved file from fileList.originFile');
+        } else if (firstFile.raw) {
+          window._originalQuoteFile = firstFile.raw;
+          console.log('Retrieved file from fileList.raw');
+        } else {
+          Message.error('No file available for extraction');
+          extracting.value = false;
+          return;
+        }
+      } else {
+        Message.error('No file available for extraction');
+        extracting.value = false;
+        return;
+      }
+    }
+    
+    // 使用保存的文件引用进行本地解析
+    const file = window._originalQuoteFile;
+    console.log('Local file processing:', file);
+    
+    // 读取文件内容
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(new Uint8Array(e.target.result));
+      reader.onerror = (e) => reject(new Error('Failed to read file'));
+      reader.readAsArrayBuffer(file);
+    });
+    
+    // 使用xlsx库解析Excel文件
+    const workbook = XLSX.read(data, { type: 'array' });
+    
+    // 检查是否存在名为"Log"的表格
+    if (!workbook.SheetNames.includes('Log')) {
+      console.warn('No "Log" sheet found in the Excel file');
+      // 尝试使用第一个sheet
+      if (workbook.SheetNames.length > 0) {
+        console.log('Using the first sheet instead:', workbook.SheetNames[0]);
+      } else {
+        throw new Error('Excel file does not contain any sheets');
+      }
+    }
+    
+    // 获取"Log"表格内容，如果不存在则使用第一个表格
+    const sheetName = workbook.SheetNames.includes('Log') ? 'Log' : workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    
+    // 将表格转换为JSON对象数组
+    const jsonData = XLSX.utils.sheet_to_json(sheet, { 
+      header: 1,  // 使用1-indexed数组作为header
+      defval: '',  // 默认值为空字符串
+      blankrows: true,  // 不忽略空行，我们需要检测空行
+      raw: false  // 不使用raw值，转换为字符串以便统一处理
+    });
+    
+    console.log('Extracted sheet data:', jsonData);
+    
+    // 提取A、B、L、M列数据
+    extractedColumns.columnA = [];
+    extractedColumns.columnB = [];
+    extractedColumns.columnL = [];
+    extractedColumns.columnM = [];
+    
+    let mColumnValueAfterEmptyRow = '';
+    let foundEmptyRow = false;
+    
+    // 遍历行数据，提取A、B、L、M列直到遇到空行
+    for (let i = 0; i < jsonData.length; i++) {
+      const row = jsonData[i];
+      
+      // 检查是否为空行（所有单元格为空或只有空白字符）
+      const isEmptyRow = !row.some(cell => (cell && String(cell).trim() !== ''));
+      
+      if (!foundEmptyRow) {
+        // 尚未找到空行，继续收集数据
+        if (!isEmptyRow) {
+          // 提取A列（索引0）、B列（索引1）、L列（索引11）、M列（索引12）的数据
+          if (row[0] !== undefined && row[0] !== '') {
+            extractedColumns.columnA.push(row[0]);
+          }
+          
+          if (row[1] !== undefined && row[1] !== '') {
+            extractedColumns.columnB.push(row[1]);
+          }
+          
+          if (row.length > 11 && row[11] !== undefined && row[11] !== '') {
+            extractedColumns.columnL.push(row[11]);
+          }
+          
+          if (row.length > 12 && row[12] !== undefined && row[12] !== '') {
+            extractedColumns.columnM.push(row[12]);
+          }
+        } else {
+          // 找到空行
+          foundEmptyRow = true;
+          
+          // 检查空行之后M列（索引12）的下一个单元格
+          for (let j = i + 1; j < jsonData.length; j++) {
+            const nextRow = jsonData[j];
+            if (nextRow && nextRow.length > 12 && nextRow[12] !== undefined && nextRow[12] !== '') {
+              mColumnValueAfterEmptyRow = nextRow[12];
               break;
             }
           }
         }
-        break;
       }
     }
     
-    // 如果找到了表头行
-    if (headerRowIndex !== -1) {
-      const headers = jsonData[headerRowIndex] || [];
-      
-      // 查找各列的索引
-      const sourceIndex = headers.indexOf('Source');
-      const targetIndex = headers.indexOf('Target');
-      const totalIndex = headers.indexOf('Total');
-      const weightedIndex = headers.indexOf('Weighted');
-      
-      console.log('Column indices:', { sourceIndex, targetIndex, totalIndex, weightedIndex });
-      
-      // 处理数据行
-      const dataRows = jsonData.slice(headerRowIndex + 1, grandTotalRowIndex !== -1 ? grandTotalRowIndex : undefined);
-      
-      for (const row of dataRows) {
-        if (!row || row.length === 0) continue;
-        
-        // 提取Source语言
-        if (sourceIndex !== -1 && row[sourceIndex] && !extractedData.sourceLanguage) {
-          extractedData.sourceLanguage = row[sourceIndex];
-          console.log('Found source language:', extractedData.sourceLanguage);
-        }
-        
-        // 提取Target语言
-        if (targetIndex !== -1 && row[targetIndex]) {
-          const targetLang = row[targetIndex];
-          if (!extractedData.targetLanguages.includes(targetLang)) {
-            extractedData.targetLanguages.push(targetLang);
-            console.log('Found target language:', targetLang);
-          }
-        }
-        
-        // 累加Total和Weighted值
-        if (totalIndex !== -1 && row[totalIndex]) {
-          const totalValue = typeof row[totalIndex] === 'number' ? 
-                           row[totalIndex] : 
-                           parseFloat(String(row[totalIndex]).replace(/[^0-9.]/g, ''));
-          
-          if (!isNaN(totalValue)) {
-            extractedData.wordCount += totalValue;
-          }
-        }
-        
-        if (weightedIndex !== -1 && row[weightedIndex]) {
-          const weightedValue = typeof row[weightedIndex] === 'number' ? 
-                              row[weightedIndex] : 
-                              parseFloat(String(row[weightedIndex]).replace(/[^0-9.]/g, ''));
-          
-          if (!isNaN(weightedValue)) {
-            extractedData.weightedCount += weightedValue;
-          }
-        }
-      }
+    console.log('Extracted column data:', extractedColumns);
+    console.log('M column value after empty row:', mColumnValueAfterEmptyRow);
+    
+    // 创建表格数据以显示提取的信息 - 垂直展示
+    const extractedInfo = [];
+    
+    // 去掉可能存在的标题行
+    let columnAData = [...extractedColumns.columnA];
+    let columnBData = [...extractedColumns.columnB];
+    let columnLData = [...extractedColumns.columnL];
+    let columnMData = [...extractedColumns.columnM];
+    
+    // 如果第一行是标题行（包含Source/Target/Total/Weighted等）则跳过
+    if (columnAData[0] && (columnAData[0].toLowerCase().includes('source'))) {
+      columnAData.shift();
+      columnBData.shift();
+      columnLData.shift();
+      columnMData.shift();
     }
     
-    // 如果没有找到金额，但在URL中看到了金额（如在提供的截图中显示$842.21）
-    if (extractedData.quoteAmount === 0) {
-      for (let i = jsonData.length - 1; i >= 0; i--) {
-        const row = jsonData[i] || [];
-        const rowStr = (row.join(' ') || '').toLowerCase();
-        if (rowStr.includes('usd') || rowStr.includes('$') || rowStr.includes('total')) {
-          for (let j = 0; j < row.length; j++) {
-            const cell = row[j];
-            if (cell && (typeof cell === 'string' && (cell.includes('$') || /\d+\.\d+/.test(cell)))) {
-              const amount = parseFloat(String(cell).replace(/[^0-9.]/g, ''));
-              if (!isNaN(amount) && amount > 0) {
-                extractedData.quoteAmount = amount;
-                console.log('Found amount in row with USD/$ mention:', amount);
-                break;
-              }
-            }
-          }
-          if (extractedData.quoteAmount > 0) break;
-        }
-      }
+    // 将每列数据垂直排列
+    const maxLength = Math.max(
+      columnAData.length,
+      columnBData.length,
+      columnLData.length,
+      columnMData.length
+    );
+    
+    for (let i = 0; i < maxLength; i++) {
+      extractedInfo.push({
+        sourceLanguage: columnAData[i] || '',
+        targetLanguage: columnBData[i] || '',
+        totalWordCount: columnLData[i] || '',
+        weightedWordCount: columnMData[i] || ''
+      });
     }
+    
+    // 添加Grand Total行到常规提取数据
+    let grandTotalValue = 0;
+    if (mColumnValueAfterEmptyRow) {
+      // 提取数字部分
+      const numericValue = parseFloat(mColumnValueAfterEmptyRow.replace(/[^0-9.]/g, '')) || 0;
+      grandTotalValue = numericValue;
+    }
+    
+    // 修正变量名称并设置总价格
+    extractedQuoteInfo.value = extractedInfo;
+    grandTotal.value = grandTotalValue;
+    
+    // 处理常规提取数据
+    // 如果值很多，可能还需要将部分数据放入常规提取
+    const extractedData = {
+      sourceLanguage: columnAData[0] || '',
+      targetLanguages: columnBData,
+      wordCount: parseFloat(columnLData[0] || '0') || 0,
+      weightedCount: parseFloat(columnMData[0] || '0') || 0,
+      quoteAmount: grandTotalValue,
+      currency: 'USD'
+    };
+    
+    // 处理常规提取数据并显示
+    processExtractedData(extractedData);
+    
   } catch (error) {
-    console.error('Error parsing Excel data:', error);
+    console.error('Error extracting quote info:', error);
+    Message.error('Failed to extract quote information');
+  } finally {
+    extracting.value = false;
   }
-  
-  console.log('Extracted data from Excel:', extractedData);
-  return extractedData;
 };
 
 // 处理提取的数据
@@ -809,7 +740,8 @@ const submitQuote = async () => {
       weightedCount: quoteForm.weightedCount || 0,
       deadline: formattedDeadline,
       notes: quoteForm.notes,
-      fileId: uploadedFileId.value
+      fileId: uploadedFileId.value,
+      extractedInfo: extractedQuoteInfo.value.length > 0 ? JSON.stringify(extractedQuoteInfo.value) : null
     };
     
     // 完整的请求URL
@@ -857,9 +789,9 @@ const submitQuote = async () => {
         // 检查是否是MySQL错误
         const errorMsg = axiosError.response.data.error || '';
         if (errorMsg.includes('MySQL') || errorMsg.includes('database') || errorMsg.includes('sql')) {
-          throw new Error(`数据库错误: ${errorMsg} / Database error: ${errorMsg}`);
+          throw new Error(`Database error: ${errorMsg}`);
         } else {
-          throw new Error(`服务器内部错误: ${errorMsg} / Server internal error: ${errorMsg}`);
+          throw new Error(`Server internal error: ${errorMsg}`);
         }
       }
       
@@ -868,7 +800,7 @@ const submitQuote = async () => {
   } catch (error) {
     console.error('Error submitting quote:', error);
     
-    let errorMessage = '未知错误 / Unknown error';
+    let errorMessage = 'Unknown error';
     
     if (error.response) {
       // 服务器响应了，但返回错误状态码
@@ -917,7 +849,7 @@ const formatDate = (date) => {
     
     // 检查日期是否有效
     if (isNaN(dateObj.getTime())) {
-      console.error('无效的日期:', date);
+      console.error('Invalid date:', date);
       return null;
     }
     
@@ -979,5 +911,16 @@ defineExpose({
 .grand-total-value {
   min-width: 100px;
   text-align: right;
+}
+
+.extracted-quote-info {
+  margin-top: 20px;
+  border-top: 1px solid var(--color-border-2);
+  padding-top: 16px;
+}
+
+.extracted-quote-info h3 {
+  margin-bottom: 16px;
+  color: var(--color-text-1);
 }
 </style> 

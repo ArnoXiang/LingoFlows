@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS task_quotes (
   deadline DATE,                                                      -- 截止日期
   notes TEXT,                                                         -- 备注
   fileId INT,                                                         -- 关联的报价文件ID
+  extractedInfo TEXT,                                                 -- 从Excel提取的特定列数据(JSON格式)
   status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending', -- 报价状态
   createTime DATETIME NOT NULL,                                       -- 创建时间
   created_by INT NOT NULL,                                            -- 创建者ID

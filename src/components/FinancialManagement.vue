@@ -38,6 +38,8 @@
           showTotal: true,
           showPageSize: true,
           pageSize: 10,
+          formatTotal: (total) => `Total ${total} items`,
+          formatPageSize: (pageSize) => `${pageSize} items/page`
         }"
         row-key="id"
         style="margin-top: 16px;"
