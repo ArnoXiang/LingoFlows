@@ -1,6 +1,6 @@
 <template>
   <div class="project-management-container">
-    <!-- 引入项目列表组件 -->
+    <!-- 项目列表组件 -->
     <ProjectList 
       :userId="userId" 
       :userRole="userRole" 
@@ -12,7 +12,7 @@
       @refresh-projects="handleProjectsRefreshed"
     />
 
-    <!-- 引入项目详情组件 -->
+    <!-- 项目详情组件 -->
     <ProjectDetail 
       ref="projectDetailRef"
       :userRole="userRole" 
@@ -21,7 +21,7 @@
       @files-refreshed="handleFilesRefreshed"
     />
     
-    <!-- 引入文件管理组件，将可见性设置为false，避免在页面底部显示 -->
+    <!-- 文件管理组件 -->
     <FileManager 
       ref="fileManagerRef"
       :userRole="userRole"
@@ -29,7 +29,7 @@
       :visible="false"
     />
     
-    <!-- 引入邮件发送组件 -->
+    <!-- 邮件发送组件 -->
     <EmailSender
       ref="emailSenderRef"
       :userRole="userRole"
@@ -40,65 +40,29 @@
 
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue';
-// 移除 useRoute 导入，因为似乎没有正确配置Vue Router
-// import { useRoute } from 'vue-router';
 import { Message } from '@arco-design/web-vue';
 import axios from 'axios';
 
-// 使用索引文件统一导入所有组件
 import { ProjectList, ProjectDetail, FileManager, EmailSender } from './project';
 
-// 用户信息和权限
 const userId = ref(localStorage.getItem('userId') || null);
-const userRole = ref(localStorage.getItem('userRole') || ''); // 可能的值: 'LM', 'PM', 'Translator', 'Revisor'
-const projects = ref([]); // 存储项目列表
+const userRole = ref(localStorage.getItem('userRole') || ''); 
+const projects = ref([]); 
 
-// 组件引用
 const projectDetailRef = ref(null);
 const fileManagerRef = ref(null);
 const emailSenderRef = ref(null);
 
-// 监听用户状态变化
+
 watch([() => userId.value, () => userRole.value], () => {
-  console.log('用户状态变化，重新加载项目数据');
+
   loadProjects();
 });
 
 // 初始化
 onMounted(() => {
-  // 只加载项目列表数据，不自动打开项目详情
   loadProjects();
   
-  // 注释掉自动打开抽屉的代码
-  /*
-  // 获取本地存储的项目ID（如果有）
-  const storedProjectId = localStorage.getItem('currentProjectId');
-  
-  // 首先加载所有项目数据
-  loadProjects().then(() => {
-    // 加载完毕后，如果有存储的项目ID，则打开项目详情
-    if (storedProjectId) {
-      const projectId = parseInt(storedProjectId);
-      if (!isNaN(projectId)) {
-        // 查找本地项目列表中是否已有此项目
-        const existingProject = projects.value.find(p => p.id === projectId);
-        if (existingProject) {
-          // 如果已有，直接使用
-          handleViewProject(existingProject);
-        } else {
-          // 如果没有，通过API获取
-          getProjectById(projectId).then(project => {
-            if (project) {
-              handleViewProject(project);
-            }
-          }).catch(error => {
-            console.error('获取项目数据失败:', error);
-          });
-        }
-      }
-    }
-  });
-  */
 });
 
 // 加载所有项目数据
@@ -142,7 +106,7 @@ const loadProjects = async () => {
   }
 };
 
-// 通过ID获取项目数据
+// 通过ID获取
 const getProjectById = async (projectId) => {
   try {
     const token = localStorage.getItem('token');
@@ -151,7 +115,6 @@ const getProjectById = async (projectId) => {
       return null;
     }
     
-    // 设置请求头
     const headers = {
       'Authorization': `Bearer ${token}`
     };
@@ -176,31 +139,27 @@ const getProjectById = async (projectId) => {
           }
 };
 
-// 处理查看项目
+// 查看
 const handleViewProject = (project, options = {}) => {
   if (projectDetailRef.value) {
     if (typeof project === 'object' && project !== null) {
       projectDetailRef.value.openDrawer(project, 'view');
-      // 存储当前项目ID到本地存储
       if (project.id) {
         localStorage.setItem('currentProjectId', project.id.toString());
       }
       
-      // 如果需要查看文件标签页，等待抽屉打开后再切换
       if (options.showFiles) {
         setTimeout(() => {
           projectDetailRef.value.switchToFilesTab();
         }, 300);
       }
     } else if (typeof project === 'number' || (typeof project === 'object' && project.id)) {
-      // 如果只有项目ID，则先获取完整的项目数据
       const projectId = typeof project === 'number' ? project : project.id;
       getProjectById(projectId).then(fullProject => {
         if (fullProject) {
           projectDetailRef.value.openDrawer(fullProject, 'view');
           localStorage.setItem('currentProjectId', projectId.toString());
           
-          // 如果需要查看文件标签页，等待抽屉打开后再切换
           if (options.showFiles) {
             setTimeout(() => {
               projectDetailRef.value.switchToFilesTab();
@@ -212,17 +171,17 @@ const handleViewProject = (project, options = {}) => {
   }
 };
 
-// 处理编辑项目
+// 编辑
 const handleEditProject = (project) => {
   if (projectDetailRef.value) {
     if (typeof project === 'object' && project !== null) {
       projectDetailRef.value.openDrawer(project, 'edit');
-      // 存储当前项目ID到本地存储
+
       if (project.id) {
         localStorage.setItem('currentProjectId', project.id.toString());
       }
     } else if (typeof project === 'number' || (typeof project === 'object' && project.id)) {
-      // 如果只有项目ID，则先获取完整的项目数据
+
       const projectId = typeof project === 'number' ? project : project.id;
       getProjectById(projectId).then(fullProject => {
         if (fullProject) {
@@ -234,22 +193,18 @@ const handleEditProject = (project) => {
   }
 };
 
-// 处理项目更新
+// 更新（删除先）
 const handleProjectUpdated = (updatedProject) => {
-  // 检查是否是删除操作
   if (updatedProject && updatedProject.deleted) {
     Message.success('Project has been deleted');
     
-    // 删除后立即刷新项目列表
     loadProjects().then(() => {
-      // 从项目列表中移除已删除的项目
       const index = projects.value.findIndex(p => p.id === updatedProject.projectId);
       if (index !== -1) {
         console.log('从项目列表中移除已删除的项目:', updatedProject.projectId);
-        // 移除项目
+        // 移除
         projects.value.splice(index, 1);
         
-        // 触发视图更新
         projects.value = [...projects.value];
         
         console.log('项目删除后刷新项目列表:', projects.value.length, '个项目');
@@ -258,19 +213,15 @@ const handleProjectUpdated = (updatedProject) => {
     return;
   }
   
-  // 正常的更新操作
+  // 正常更新
   Message.success('Project has been updated');
   
-  // 更新后立即刷新项目列表
+  // 更新后立即刷新
   loadProjects().then(() => {
-    // 在项目列表数据中找到并更新相应项目
     const index = projects.value.findIndex(p => p.id === updatedProject.id);
     if (index !== -1) {
       console.log('更新项目列表中的项目数据:', updatedProject);
-      // 确保UI更新 - 直接修改数组中的元素
       projects.value.splice(index, 1, updatedProject);
-      
-      // 触发视图更新 - 创建数组的浅拷贝以确保Vue检测到变化
       projects.value = [...projects.value];
       
       console.log('通知刷新项目列表:', projects.value.length, '个项目');
@@ -278,13 +229,12 @@ const handleProjectUpdated = (updatedProject) => {
   });
 };
 
-// 处理发送项目邮件
+// 发送邮件
 const handleSendProjectEmail = (project) => {
   if (emailSenderRef.value) {
     if (typeof project === 'object' && project !== null) {
       emailSenderRef.value.openEmailModal(project);
     } else if (typeof project === 'number' || (typeof project === 'object' && project.id)) {
-      // 如果只有项目ID，则先获取完整的项目数据
       const projectId = typeof project === 'number' ? project : project.id;
       getProjectById(projectId).then(fullProject => {
         if (fullProject) {
@@ -295,12 +245,12 @@ const handleSendProjectEmail = (project) => {
   }
 };
 
-// 处理邮件发送完成
+// 发送完毕
 const handleEmailSent = (emailData) => {
   Message.success('Email has been sent');
 };
 
-// 处理文件上传
+// 文件上传
 const handleUploadFiles = (project) => {
   if (!projectDetailRef.value || !fileManagerRef.value) {
     console.error('组件引用不存在，无法上传文件');
@@ -310,7 +260,7 @@ const handleUploadFiles = (project) => {
   
   console.log('处理文件上传，项目:', project);
   
-  // 获取项目ID
+  // 获取ID
   let projectId;
   if (typeof project === 'object' && project !== null) {
     projectId = project.id;
@@ -328,7 +278,7 @@ const handleUploadFiles = (project) => {
     return;
   }
   
-  // 首先获取完整的项目信息
+  // 获取完整信息
   getProjectById(projectId).then(fullProject => {
     if (!fullProject) {
       console.error('获取项目详情失败');
@@ -336,17 +286,12 @@ const handleUploadFiles = (project) => {
       return;
     }
     
-    // 打开项目详情抽屉，并切换到文件标签页
     projectDetailRef.value.openDrawer(fullProject, 'view');
     
-    // 等待抽屉打开
+
     setTimeout(() => {
-      // 切换到文件标签页
       projectDetailRef.value.switchToFilesTab();
-      
-      // 再等待一段时间，确保文件标签页已加载
       setTimeout(() => {
-        // 打开上传模态框
         fileManagerRef.value.openUploadModal(fullProject.id);
       }, 500);
     }, 300);
@@ -356,13 +301,11 @@ const handleUploadFiles = (project) => {
   });
 };
 
-// 处理项目列表刷新
 const handleProjectsRefreshed = (refreshedProjects) => {
   console.log('项目列表已刷新，获取到', refreshedProjects.length, '个项目');
   projects.value = refreshedProjects;
 };
 
-// 处理文件刷新
 const handleFilesRefreshed = () => {
   console.log('项目文件已刷新');
 };
@@ -374,9 +317,6 @@ const handleFilesRefreshed = () => {
   height: 100%;
   padding: 20px;
   background-color: var(--color-bg-2);
-  /* 添加溢出滚动，这是唯一需要滚动的容器 */
   overflow-y: auto;
 }
-
-/* 移除其他样式，因为都已经移动到各自的组件中 */
 </style>

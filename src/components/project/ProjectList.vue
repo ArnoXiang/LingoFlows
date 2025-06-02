@@ -89,7 +89,10 @@
         pageSizeOptions: [10, 20, 50, 100],
         onPageSizeChange: (size) => pageSize = size,
         formatTotal: (total) => `Total ${total} items`,
-        formatPageSize: (pageSize) => `${pageSize} items/page`
+        formatPageSize: (pageSize) => `${pageSize} items/page`,
+        jumperText: 'Go to',
+        prev: 'Previous',
+        next: 'Next'
       }"
       row-key="id"
       style="margin-top: 16px;"
@@ -245,6 +248,13 @@ const columns = [
     title: 'Request Name',
     dataIndex: 'requestName',
     key: 'requestName',
+    resizable: true,
+  },
+  {
+    title: 'Requester',
+    dataIndex: 'requesterName',
+    key: 'requesterName',
+    sortable: true,
     resizable: true,
   },
   {

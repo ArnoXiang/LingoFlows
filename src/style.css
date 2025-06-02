@@ -16,3 +16,83 @@ html, body {
   height: 100%; 
   padding: 0; 
 }
+
+/* 覆盖 Arco Design 分页组件中的中文文本 */
+.arco-pagination-jumper-text::before {
+  content: 'Go to';
+}
+
+.arco-pagination-jumper-text::after {
+  content: ' Page';
+}
+
+.arco-pagination-jumper-text {
+  font-size: 0; /* 隐藏原文本 */
+}
+
+.arco-pagination-total {
+  font-size: 0; /* 隐藏原始文本 */
+}
+
+.arco-pagination-total::after {
+  content: attr(title);
+  font-size: 14px; /* 恢复字体大小 */
+}
+
+/* 自定义分页显示模式文本 */
+.arco-select-view-value span[title="10.pagination.countperpage"] {
+  font-size: 0; /* 隐藏原文本 */
+}
+
+.arco-select-view-value span[title="10.pagination.countperpage"]::after {
+  content: '10 items/page';
+  font-size: 14px;
+}
+
+.arco-select-view-value span[title="20.pagination.countperpage"]::after {
+  content: '20 items/page';
+  font-size: 14px;
+}
+
+.arco-select-view-value span[title="50.pagination.countperpage"]::after {
+  content: '50 items/page';
+  font-size: 14px;
+}
+
+.arco-select-view-value span[title="100.pagination.countperpage"]::after {
+  content: '100 items/page';
+  font-size: 14px;
+}
+
+/* 确保下拉菜单选项也正确显示 */
+.arco-select-option-content span[title="10.pagination.countperpage"],
+.arco-select-option-content span[title="20.pagination.countperpage"],
+.arco-select-option-content span[title="50.pagination.countperpage"],
+.arco-select-option-content span[title="100.pagination.countperpage"] {
+  font-size: 0; /* 隐藏原文本 */
+}
+
+.arco-select-option-content span[title="10.pagination.countperpage"]::after {
+  content: '10 items/page';
+  font-size: 14px;
+}
+
+.arco-select-option-content span[title="20.pagination.countperpage"]::after {
+  content: '20 items/page';
+  font-size: 14px;
+}
+
+.arco-select-option-content span[title="50.pagination.countperpage"]::after {
+  content: '50 items/page';
+  font-size: 14px;
+}
+
+.arco-select-option-content span[title="100.pagination.countperpage"]::after {
+  content: '100 items/page';
+  font-size: 14px;
+}
+
+/* 确保表格英文文本正常显示 */
+.arco-table-th-item {
+  white-space: nowrap;
+}

@@ -137,6 +137,9 @@ export const processProject = (project) => {
   // 确保created_by字段存在且为数字类型
   const created_by = project.created_by ? Number(project.created_by) : null;
   
+  // 处理requesterName字段，如果不存在则设置默认值
+  const requesterName = project.requesterName || 'Unknown';
+  
   // 处理targetLanguages字段，如果是字符串则转换为数组
   let targetLanguages = project.targetLanguages;
   if (typeof targetLanguages === 'string' && targetLanguages) {
@@ -205,6 +208,7 @@ export const processProject = (project) => {
     ...project,
     id,
     created_by,
+    requesterName,
     targetLanguages,
     additionalRequirements,
     expectedDeliveryDate,

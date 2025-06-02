@@ -2,7 +2,7 @@
   <div class="financial-management-container">
     <h2>Financial Management</h2>
     
-    <!-- 只有FT用户可以访问财务管理 -->
+    <!-- 只有FT可以访问财务管理 -->
     <div v-if="userRole === 'FT'">
       <!-- 项目列表 -->
       <div class="action-bar">
@@ -502,7 +502,7 @@ const fetchProjects = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
       console.error('未找到令牌，无法获取项目数据');
-      Message.error('未登录或会话已过期 / Not logged in or session expired');
+      Message.error('Not logged in or session expired');
       return;
     }
     
@@ -569,12 +569,12 @@ const fetchProjects = async () => {
         projects.value = fallbackProjects;
         console.log(`备用方法获取项目成功: ${fallbackProjects.length} 条记录`);
       } else {
-        Message.error('获取项目列表失败 / Failed to fetch projects');
+        Message.error('Failed to fetch projects');
         projects.value = [];
       }
     } catch (fallbackError) {
       console.error('备用方法也失败:', fallbackError);
-      Message.error('获取项目列表失败 / Failed to fetch projects');
+      Message.error('Failed to fetch projects');
       projects.value = [];
     }
   } finally {
@@ -632,7 +632,7 @@ const fetchProjectQuotes = async (projectId) => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      Message.error('未登录或会话已过期 / Not logged in or session expired');
+      Message.error('Not logged in or session expired');
       return;
     }
     
@@ -692,7 +692,7 @@ const fetchProjectQuotes = async (projectId) => {
     }
   } catch (error) {
     console.error('获取项目报价数据失败:', error);
-    Message.error('获取项目报价数据失败 / Failed to fetch project quotes');
+    Message.error('Failed to fetch project quotes');
   }
 };
 
@@ -821,7 +821,7 @@ const onExportQuote = async (project) => {
   try {
     Message.loading({
       id: 'exportLoading',
-      content: '正在准备导出数据... / Preparing export data...',
+      content: 'Preparing export data...',
       duration: 500
     });
     
@@ -831,7 +831,7 @@ const onExportQuote = async (project) => {
     // 处理后端导出API
     const token = localStorage.getItem('token');
     if (!token) {
-      Message.error('未登录或会话已过期 / Not logged in or session expired');
+      Message.error('Not logged in or session expired');
       Message.clear('exportLoading');
       return;
     }
@@ -856,7 +856,7 @@ const onExportQuote = async (project) => {
       link.click();
       document.body.removeChild(link);
       
-      Message.success('报价信息导出成功 / Quote information exported successfully');
+      Message.success('Quote information exported successfully');
     } catch (apiError) {
       console.log('后端API导出失败，使用前端实现:', apiError);
       
@@ -865,7 +865,7 @@ const onExportQuote = async (project) => {
     }
   } catch (error) {
     console.error('导出报价信息失败:', error);
-    Message.error(`导出失败: ${error.message || '未知错误'} / Export failed: ${error.message || 'Unknown error'}`);
+    Message.error(`Export failed: ${error.message || 'Unknown error'}`);
   } finally {
     Message.clear('exportLoading');
   }
@@ -978,12 +978,12 @@ const exportQuoteToExcelFrontend = async (project) => {
   // 导出Excel文件
   XLSX.writeFile(workbook, `Project_Quote_${project.projectName.replace(/[^\w\s]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   
-  Message.success('报价信息导出成功 / Quote information exported successfully');
+  Message.success('Quote information exported successfully');
 };
 
 // 处理报价上传完成
 const handleQuoteUploaded = async () => {
-  Message.success('报价已上传 / Quote has been uploaded');
+  Message.success('Quote has been uploaded');
   await fetchProjects(); // 刷新项目列表
   
   // 如果当前正在查看项目，也刷新项目报价数据

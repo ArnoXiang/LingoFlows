@@ -1,0 +1,58 @@
+﻿Project ID,Project Name,Project Status,Request Name,Project Manager,Create Time,Expected Delivery Date,Translation Task,LQA Task,Translation Update,LQA Report Finalization
+1,产品手册翻译项目,In Progress,产品手册翻译请求,Yizhuo Xiang,2025/03/08 19:40,2025/03/22,Completed,In Progress,Not Started,Not Started
+2,营销材料本地化,Pending,营销材料翻译请求,Yizhuo Xiang,2025/03/08 19:40,2025/03/15,In Progress,In Progress,Not Started,Not Started
+3,软件界面翻译,Completed,软件界面翻译请求,Yizhuo Xiang,2025/03/08 19:40,2025/03/01,Completed,Completed,Completed,Completed
+46,test517 项目,Pending,test517,Yizhuo Xiang,2025/05/17 18:33,2025/05/30,Not Started,Not Started,Not Started,Not Started
+13,9999 项目,Pending,9999,Yizhuo Xiang,2025/03/24 00:45,2025/03/31,Not Started,Not Started,Not Started,Not Started
+42,313131 项目,Pending,313131,Yizhuo Xiang,2025/03/31 19:13,2025/03/31,Not Started,Not Started,Not Started,Not Started
+47,test517_1 项目,Pending,test517_1,Yizhuo Xiang,2025/05/17 18:40,2025/05/30,Completed,Not Started,Not Started,Not Started
+48,test517_2 项目,Pending,test517_2,Yizhuo Xiang,2025/05/17 18:48,2025/05/31,Not Started,Not Started,Not Started,Not Started
+49,test517_3 项目,Pending,test517_3,Yizhuo Xiang,2025/05/17 18:59,2025/05/29,Not Started,Not Started,Not Started,Not Started
+50,test517_4 项目,Pending,test517_4,Yizhuo Xiang,2025/05/17 19:05,2025/05/22,Not Started,Not Started,Not Started,Not Started
+51,test517_5 项目,Pending,test517_5,Yizhuo Xiang,2025/05/17 19:16,2025/05/29,Not Started,Not Started,Not Started,Not Started
+52,test517_6 项目,Pending,test517_6,Yizhuo Xiang,2025/05/17 19:22,2025/05/29,Not Started,Not Started,Not Started,Not Started
+53,test517_7 项目,Pending,test517_7,Yizhuo Xiang,2025/05/17 19:31,2025/05/31,Not Started,Not Started,Not Started,Not Started
+54,test517_7 项目,Pending,test517_7,Yizhuo Xiang,2025/05/17 19:47,2025/05/29,Not Started,Not Started,Not Started,Not Started
+55,test517_8 项目,Pending,test517_8,Yizhuo Xiang,2025/05/17 19:54,2025/05/30,Not Started,Not Started,Not Started,Not Started
+56,test517_9 项目,Pending,test517_9,Yizhuo Xiang,2025/05/17 20:04,2025/06/05,Not Started,Not Started,Not Started,Not Started
+57,test517_10 项目,Pending,test517_10,Yizhuo Xiang,2025/05/17 20:11,2025/05/23,Not Started,Not Started,Not Started,Not Started
+4,111 项目,In Progress,111,Yizhuo Xiang,2025/03/15 22:48,2025/03/05,Completed,In Progress,In Progress,In Progress
+5,222 项目,In Progress,222,Yizhuo Xiang,2025/03/15 22:54,2025/03/18,In Progress,In Progress,Not Started,Not Started
+7,444 项目,Pending,444,Yizhuo Xiang,2025/03/15 23:03,2025/03/19,In Progress,Completed,In Progress,In Progress
+8,title 项目,Pending,title,Yizhuo Xiang,2025/03/19 06:49,2025/03/20,Completed,In Progress,In Progress,Not Started
+9,request1 项目,Pending,request1,Yizhuo Xiang,2025/03/19 06:51,2025/03/24,In Progress,In Progress,In Progress,In Progress
+10,123 项目,Pending,123,Yizhuo Xiang,2025/03/23 23:56,2025/03/31,In Progress,In Progress,In Progress,In Progress
+11,456 项目,Pending,456,Yizhuo Xiang,2025/03/23 23:57,2025/03/31,Not Started,Not Started,Not Started,Not Started
+12,789 项目,Pending,789,Yizhuo Xiang,2025/03/24 00:05,2025/03/31,Not Started,Not Started,Not Started,Not Started
+14,0000 项目,Pending,0000,Yizhuo Xiang,2025/03/24 01:08,2025/03/31,Not Started,Not Started,Not Started,Not Started
+15,6666 项目,Pending,6666,Yizhuo Xiang,2025/03/24 01:12,2025/03/31,Not Started,Not Started,Not Started,Not Started
+16,7777 项目,Pending,7777,Yizhuo Xiang,2025/03/24 01:18,2025/03/31,Not Started,Not Started,Not Started,Not Started
+17,5555 项目,Pending,5555,Yizhuo Xiang,2025/03/24 01:21,2025/03/31,Not Started,Not Started,Not Started,Not Started
+18,4444 项目,Pending,4444,Yizhuo Xiang,2025/03/24 01:24,2025/03/31,Not Started,Not Started,Not Started,Not Started
+19,1111 项目,Pending,1111,Yizhuo Xiang,2025/03/24 01:32,2025/03/31,Not Started,Not Started,Not Started,Not Started
+20,2222 项目,Pending,2222,Yizhuo Xiang,2025/03/24 01:33,2025/03/31,Not Started,Not Started,Not Started,Not Started
+21,6666 项目,Pending,6666,Yizhuo Xiang,2025/03/24 01:38,2025/03/31,Not Started,Not Started,Not Started,Not Started
+22,5555 项目,Pending,5555,Yizhuo Xiang,2025/03/24 01:43,2025/03/31,Not Started,Not Started,Not Started,Not Started
+23,8888 项目,Pending,8888,Yizhuo Xiang,2025/03/24 01:56,2025/03/31,Not Started,Not Started,Not Started,Not Started
+24,9999 项目,Pending,9999,Yizhuo Xiang,2025/03/24 02:00,2025/03/31,Not Started,Not Started,Not Started,Not Started
+25,3333 项目,Pending,3333,Yizhuo Xiang,2025/03/24 02:24,2025/03/31,Not Started,Not Started,Not Started,Not Started
+26,777 项目,Pending,777,Yizhuo Xiang,2025/03/24 02:27,2025/03/31,Not Started,Not Started,Not Started,Not Started
+27,自动关联测试请求 项目,Pending,自动关联测试请求,Yizhuo Xiang,2025/03/24 02:32,2025/03/30,Not Started,Not Started,Not Started,Not Started
+28,文件关联自动测试请求 项目,Pending,文件关联自动测试请求,Yizhuo Xiang,2025/03/24 02:37,2025/03/30,Not Started,Not Started,Not Started,Not Started
+29,文件关联自动测试请求 项目,Pending,文件关联自动测试请求,Yizhuo Xiang,2025/03/24 02:39,2025/03/30,Not Started,Not Started,Not Started,Not Started
+30,文件关联自动测试请求 项目,Pending,文件关联自动测试请求,Yizhuo Xiang,2025/03/24 02:40,2025/03/30,Not Started,Not Started,Not Started,Not Started
+31,6666 项目,Pending,6666,Yizhuo Xiang,2025/03/24 02:41,2025/03/31,Not Started,Not Started,Not Started,Not Started
+32,自动测试请求-修复后 项目,Pending,自动测试请求-修复后,Yizhuo Xiang,2025/03/24 02:45,2025/03/30,Not Started,Not Started,Not Started,Not Started
+33,自动测试请求-修复后 项目,Pending,自动测试请求-修复后,Yizhuo Xiang,2025/03/24 02:46,2025/03/30,Not Started,Not Started,Not Started,Not Started
+34,444 项目,Pending,444,Yizhuo Xiang,2025/03/24 02:48,2025/03/31,Not Started,Not Started,Not Started,Not Started
+35,7777 项目,Pending,7777,Yizhuo Xiang,2025/03/24 02:56,2025/03/31,Not Started,Not Started,Not Started,Not Started
+36,222 项目,Pending,222,Yizhuo Xiang,2025/03/24 03:02,2025/03/31,Not Started,Not Started,Not Started,Not Started
+37,ggg 项目,Pending,ggg,Yizhuo Xiang,2025/03/24 03:09,2025/03/31,Not Started,Not Started,Not Started,Not Started
+38,rrr 项目,Pending,rrr,Yizhuo Xiang,2025/03/24 03:14,2025/03/31,Not Started,Not Started,Not Started,Not Started
+39,hhhh 项目,Pending,hhhh,Yizhuo Xiang,2025/03/24 03:20,2025/03/31,Not Started,Not Started,Not Started,Not Started
+40,gggg 项目,Pending,gggg,Yizhuo Xiang,2025/03/24 03:21,2025/03/31,Not Started,Not Started,Not Started,Not Started
+41,yyy 项目,Pending,yyy,Yizhuo Xiang,2025/03/24 04:04,2025/03/31,In Progress,In Progress,Not Started,Not Started
+43,31313131 项目,Pending,31313131,Yizhuo Xiang,2025/03/31 19:16,2025/03/31,Not Started,Not Started,Not Started,Not Started
+44,ttt 项目,Pending,ttt,Yizhuo Xiang,2025/04/01 00:03,2025/03/31,In Progress,Not Started,Not Started,Not Started
+45,lll 项目,Pending,lll,Yizhuo Xiang,2025/04/01 02:50,2025/03/31,Not Started,Not Started,Not Started,Not Started
+59,request_demo1 项目,Pending,request_demo1,Yizhuo Xiang,2025/05/19 18:33,2025/05/29,Completed,In Progress,In Progress,Not Started

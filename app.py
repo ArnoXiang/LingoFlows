@@ -117,6 +117,7 @@ def login():
             }
         })
 
+
 @app.route('/api/users/current', methods=['GET'])
 def get_current_user():
     auth_header = request.headers.get('Authorization')
@@ -205,7 +206,6 @@ def token_required(f):
 # 项目相关接口
 @app.route('/api/projects', methods=['GET'])
 @token_required
-
 def get_projects():
     user_role = request.user.get('role')
     # 尝试从不同的键名获取用户ID
@@ -225,11 +225,22 @@ def get_projects():
         if user_role in ['LM', 'FT'] or all_param == 'true' or fallback_param == 'true':
             # LM/FT可以查看所有项目
             print(f"{user_role}用户或特殊查询 - 查询所有项目")
-            cur.execute("SELECT * FROM projectname")
+            # 修改SQL，添加关联查询以获取请求者名称
+            cur.execute("""
+                SELECT p.*, u.name as requesterName  
+                FROM projectname p
+                LEFT JOIN users u ON p.created_by = u.id
+            """)
         else:
             # BO只能查看自己提交的项目
             print(f"非LM/FT用户 - 只查询用户ID为 {user_id} 的项目")
-            cur.execute("SELECT * FROM projectname WHERE created_by = %s", (user_id,))
+            # 修改SQL，添加关联查询以获取请求者名称
+            cur.execute("""
+                SELECT p.*, u.name as requesterName  
+                FROM projectname p
+                LEFT JOIN users u ON p.created_by = u.id
+                WHERE p.created_by = %s
+            """, (user_id,))
         
         projects = cur.fetchall()
         print(f"查询结果: 找到 {len(projects)} 个项目")
@@ -246,8 +257,12 @@ def get_projects():
                 cur.execute("UPDATE projectname SET created_by = %s WHERE created_by IS NULL", (user_id,))
                 db.commit()
                 
-                # 重新查询所有项目
-                cur.execute("SELECT * FROM projectname")
+                # 重新查询所有项目，包括请求者名称
+                cur.execute("""
+                    SELECT p.*, u.name as requesterName  
+                    FROM projectname p
+                    LEFT JOIN users u ON p.created_by = u.id
+                """)
                 projects = cur.fetchall()
                 print(f"更新后查询结果: 找到 {len(projects)} 个项目")
     
@@ -257,21 +272,26 @@ def get_projects():
 @token_required
 def get_project(project_id):
     user_role = request.user.get('role')
-    user_id = request.user.get('user_id') or request.user.get('id')
+    user_id = request.user.get('user_id')
     
+    # 添加请求者名称查询
     with db.cursor() as cur:
-        if user_role in ['LM', 'FT']:
-            # LM和FT可以查看任何项目
-            cur.execute("SELECT * FROM projectname WHERE id = %s", (project_id,))
-        else:
-            # BO只能查看自己的项目
-            cur.execute("SELECT * FROM projectname WHERE id = %s AND created_by = %s", (project_id, user_id))
-        
-
+        cur.execute("""
+            SELECT p.*, u.name as requesterName 
+            FROM projectname p
+            LEFT JOIN users u ON p.created_by = u.id
+            WHERE p.id = %s
+        """, (project_id,))
         project = cur.fetchone()
+        
         if not project:
-            return jsonify({"error": "Project not found or you don't have permission"}), 404
-    return jsonify(project)
+            return jsonify({"error": "Project not found"}), 404
+            
+        # 非LM用户只能查看自己的项目
+        if user_role != 'LM' and project['created_by'] != user_id:
+            return jsonify({"error": "You don't have permission to access this project"}), 403
+            
+        return jsonify(project)
 
 @app.route('/api/projects', methods=['POST'])
 @token_required
@@ -282,8 +302,8 @@ def create_project():
     # 从请求中提取项目数据
     project_name = data.get('projectName')
     request_name = data.get('requestName')
-    project_manager = data.get('projectManager', 'Yizhuo Xiang')  # 默认项目经理
-    project_status = data.get('projectStatus', 'pending')  # 默认状态为待处理
+    project_manager = data.get('projectManager', 'Yizhuo Xiang')  
+    project_status = data.get('projectStatus', 'pending')  
     
     # 其他项目数据
     source_language = data.get('sourceLanguage')
@@ -482,9 +502,8 @@ def update_project(project_id):
         
         if 'expectedDeliveryDate' in data:
             update_fields.append("expectedDeliveryDate = %s")
-            # 确保日期格式正确
+
             try:
-                # 尝试解析日期
                 if data['expectedDeliveryDate']:
                     # 如果是日期对象的字符串表示，尝试转换为日期对象
                     if isinstance(data['expectedDeliveryDate'], str):
@@ -1756,7 +1775,7 @@ def delete_file(file_id):
         # 软删除文件（将isDeleted标记为TRUE）
         cur.execute("UPDATE files SET isDeleted = TRUE WHERE id = %s", (file_id,))
         db.commit()
-    
+
     return jsonify({"message": "File deleted successfully"}), 200
 
 # 批量软删除文件
@@ -2735,13 +2754,5 @@ def get_quote_extracted_info(quote_id):
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    logger.info("==========================================")
-    logger.info("LingoFlows本地化管理系统正在启动...")
-    logger.info("==========================================")
-    logger.info("正在初始化数据库...")
-    init_db()  # 初始化数据库
-    logger.info("数据库初始化完成")
-    logger.info("==========================================")
-    logger.info("系统启动成功，监听端口5000")
-    logger.info("==========================================")
+    init_db() 
     app.run(debug=True)

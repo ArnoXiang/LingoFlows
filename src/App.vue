@@ -1,224 +1,226 @@
 <template>
-  <a-layout class="layout-demo">
-    <a-layout-sider
-      theme="dark"
-      breakpoint="lg"
-      :width="220"
-      collapsible
-      :collapsed="collapsed"
-      @collapse="onCollapse"
-    >
-      <div class="logo-placeholder" @click="goToHome">
-        <!-- 展开状态下的logo显示 -->
-        <div class="logo-content" v-if="!collapsed">
-          <div class="logo-icon">
-            <IconLanguage />
-          </div>
-          <div class="logo-text">
-            <span class="logo-name">Lingo<span class="logo-highlight">Flows</span></span>
-            <span class="logo-tagline">Localization Platform</span>
-          </div>
-        </div>
-        <!-- 折叠状态下的logo显示 -->
-        <div class="logo-content-collapsed" v-else>
-          <div class="logo-icon-collapsed">
-            <IconLanguage />
-          </div>
-        </div>
-      </div>
-      <a-menu
-        :defaultOpenKeys="['1']"
-        :selectedKeys="[selectedMenuKey]"
-        @menuItemClick="onClickMenuItem"
+  <a-config-provider :locale="locale">
+    <a-layout class="layout-demo">
+      <a-layout-sider
+        theme="dark"
+        breakpoint="lg"
+        :width="220"
+        collapsible
+        :collapsed="collapsed"
+        @collapse="onCollapse"
       >
-        <!-- Home - 所有用户可见，包括未登录用户 -->
-        <a-menu-item key="0">
-          <IconHome />
-          Home
-        </a-menu-item>
-        
-        <!-- 本地化管理 - 根据权限显示子菜单 -->
-        <a-sub-menu key="1" v-if="filteredMenuItems.some(item => item.startsWith('1_'))">
-          <template #title>
-            <span><IconApps />L10n Management</span>
-          </template>
-          
-          <!-- 请求管理 - 所有登录用户可见 -->
-          <a-menu-item key="1_1" v-if="filteredMenuItems.includes('1_1')">
-            Request Management
-          </a-menu-item>
-          
-          <!-- 项目管理 - LM和BO可见 -->
-          <a-menu-item key="1_2" v-if="filteredMenuItems.includes('1_2')">
-            Project Management
-          </a-menu-item>
-          
-          <!-- 财务管理 - 仅LM和FT可见 -->
-          <a-menu-item key="1_3" v-if="filteredMenuItems.includes('1_3')">
-            Financial Management
-          </a-menu-item>
-        </a-sub-menu>
-        
-        <!-- 系统设置 - 仅LM可见 -->
-        <a-menu-item key="2" v-if="filteredMenuItems.includes('2')">
-          <IconSettings />
-          Settings
-        </a-menu-item>
-      </a-menu>
-    </a-layout-sider>
-    <a-layout>
-      <a-layout-header>
-        <div class="header-content">
-          <div class="header-left">
-            <!-- 左侧内容已移除 -->
+        <div class="logo-placeholder" @click="goToHome">
+          <!-- 展开状态下的logo显示 -->
+          <div class="logo-content" v-if="!collapsed">
+            <div class="logo-icon">
+              <IconLanguage />
+            </div>
+            <div class="logo-text">
+              <span class="logo-name">Lingo<span class="logo-highlight">Flows</span></span>
+              <span class="logo-tagline">Localization Platform</span>
+            </div>
           </div>
-          
-          <div class="header-right">
-            <!-- 登录/登出按钮 -->
-            <a-button 
-              v-if="!isLoggedIn" 
-              type="primary" 
-              @click="toggleLogin" 
-              class="login-button"
-            >
-              Login
-            </a-button>
-            <a-button 
-              v-else 
-              type="outline" 
-              @click="toggleLogin" 
-              class="logout-button"
-            >
-              Logout
-            </a-button>
-            
-            <div class="user-avatar">
-              <!-- 未登录状态显示空白头像 -->
-              <a-avatar v-if="!isLoggedIn" :style="{ backgroundColor: '#f0f2f5', color: '#ccc' }">
-                <template #icon><IconUser /></template>
-              </a-avatar>
-              
-              <!-- 登录状态下显示用户信息 -->
-              <a-dropdown v-else trigger="click">
-                <a-avatar :style="{ backgroundColor: '#3c9ae8' }">
-                  {{ userName.charAt(0).toUpperCase() }}
-                </a-avatar>
-                <template #content>
-                  <a-doption>
-                    <div class="user-dropdown-item">
-                      <span>{{ userName }}</span>
-                      <span class="user-role">{{ userRole === 'LM' ? 'LM' : userRole === 'FT' ? 'FT' : 'BO' }}</span>
-                    </div>
-                  </a-doption>
-                </template>
-              </a-dropdown>
+          <!-- 折叠状态下的logo显示 -->
+          <div class="logo-content-collapsed" v-else>
+            <div class="logo-icon-collapsed">
+              <IconLanguage />
             </div>
           </div>
         </div>
-      </a-layout-header>
-      <a-layout style="padding: 0 24px">
-        <a-breadcrumb :style="{ margin: '16px 0' }">
-          <a-breadcrumb-item>Home</a-breadcrumb-item>
-          <a-breadcrumb-item>{{ getBreadcrumbText() }}</a-breadcrumb-item>
-        </a-breadcrumb>
-        <a-layout-content style="color: black;">
-          <!-- Home页面 -->
-          <div v-if="currentPage === 'home'" class="home-container">
-            <h1 class="home-title">Welcome to LingoFlows</h1>
-            <h2 class="home-subtitle">Collaborative Localization Management Platform</h2>
+        <a-menu
+          :defaultOpenKeys="['1']"
+          :selectedKeys="[selectedMenuKey]"
+          @menuItemClick="onClickMenuItem"
+        >
+          <!-- Home - 所有用户可见，包括未登录用户 -->
+          <a-menu-item key="0">
+            <IconHome />
+            Home
+          </a-menu-item>
+          
+          <!-- 本地化管理 - 根据权限显示子菜单 -->
+          <a-sub-menu key="1" v-if="filteredMenuItems.some(item => item.startsWith('1_'))">
+            <template #title>
+              <span><IconApps />L10n Management</span>
+            </template>
             
-            <div class="home-content">
-              <div class="home-section">
-                <h3>About LingoFlows</h3>
-                <p>
-                  LingoFlows is a comprehensive localization management platform designed to streamline the translation 
-                  and localization process for businesses of all sizes. Our platform provides powerful tools for request 
-                  management, project tracking, and financial reporting in a collaborative environment.
-                </p>
-              </div>
+            <!-- 请求管理 - 所有登录用户可见 -->
+            <a-menu-item key="1_1" v-if="filteredMenuItems.includes('1_1')">
+              Request Management
+            </a-menu-item>
+            
+            <!-- 项目管理 - LM和BO可见 -->
+            <a-menu-item key="1_2" v-if="filteredMenuItems.includes('1_2')">
+              Project Management
+            </a-menu-item>
+            
+            <!-- 财务管理 - 仅LM和FT可见 -->
+            <a-menu-item key="1_3" v-if="filteredMenuItems.includes('1_3')">
+              Financial Management
+            </a-menu-item>
+          </a-sub-menu>
+          
+          <!-- 系统设置 - 仅LM可见 -->
+          <a-menu-item key="2" v-if="filteredMenuItems.includes('2')">
+            <IconSettings />
+            Settings
+          </a-menu-item>
+        </a-menu>
+      </a-layout-sider>
+      <a-layout>
+        <a-layout-header>
+          <div class="header-content">
+            <div class="header-left">
+              <!-- 左侧内容已移除 -->
+            </div>
+            
+            <div class="header-right">
+              <!-- 登录/登出按钮 -->
+              <a-button 
+                v-if="!isLoggedIn" 
+                type="primary" 
+                @click="toggleLogin" 
+                class="login-button"
+              >
+                Login
+              </a-button>
+              <a-button 
+                v-else 
+                type="outline" 
+                @click="toggleLogin" 
+                class="logout-button"
+              >
+                Logout
+              </a-button>
               
-              <div class="home-section">
-                <h3>Key Features</h3>
-                <ul>
-                  <li><strong>Request Management:</strong> Submit and track localization requests</li>
-                  <li><strong>Project Management:</strong> Monitor localization projects from start to finish</li>
-                  <li><strong>Financial Management:</strong> Track costs, quotes, and invoices</li>
-                  <li><strong>Team Collaboration:</strong> Connect business owners, project managers, LSPs, and procurement teams</li>
-                </ul>
-              </div>
-              
-              <div class="home-section home-login-info">
-                <h3>Getting Started</h3>
-                <p>To access the platform features, please log in using the credentials provided by your administrator.</p>
+              <div class="user-avatar">
+                <!-- 未登录状态显示空白头像 -->
+                <a-avatar v-if="!isLoggedIn" :style="{ backgroundColor: '#f0f2f5', color: '#ccc' }">
+                  <template #icon><IconUser /></template>
+                </a-avatar>
                 
-                <div class="demo-accounts">
-                  <h4>Demo Accounts</h4>
-                  <div class="account-card">
-                    <div class="account-type">Project Manager (PM)</div>
-                    <div class="account-creds">
-                      <span>Username: admin</span>
-                      <span>Password: admin123</span>
-                    </div>
-                    <div class="account-desc">Full access to all platform features</div>
-                  </div>
+                <!-- 登录状态下显示用户信息 -->
+                <a-dropdown v-else trigger="click">
+                  <a-avatar :style="{ backgroundColor: '#3c9ae8' }">
+                    {{ userName.charAt(0).toUpperCase() }}
+                  </a-avatar>
+                  <template #content>
+                    <a-doption>
+                      <div class="user-dropdown-item">
+                        <span>{{ userName }}</span>
+                        <span class="user-role">{{ userRole === 'LM' ? 'LM' : userRole === 'FT' ? 'FT' : 'BO' }}</span>
+                      </div>
+                    </a-doption>
+                  </template>
+                </a-dropdown>
+              </div>
+            </div>
+          </div>
+        </a-layout-header>
+        <a-layout style="padding: 0 24px">
+          <a-breadcrumb :style="{ margin: '16px 0' }">
+            <a-breadcrumb-item>Home</a-breadcrumb-item>
+            <a-breadcrumb-item>{{ getBreadcrumbText() }}</a-breadcrumb-item>
+          </a-breadcrumb>
+          <a-layout-content style="color: black;">
+            <!-- Home页面 -->
+            <div v-if="currentPage === 'home'" class="home-container">
+              <h1 class="home-title">Welcome to LingoFlows</h1>
+              <h2 class="home-subtitle">Collaborative Localization Management Platform</h2>
+              
+              <div class="home-content">
+                <div class="home-section">
+                  <h3>About LingoFlows</h3>
+                  <p>
+                    LingoFlows is a comprehensive localization management platform designed to streamline the translation 
+                    and localization process for businesses of all sizes. Our platform provides powerful tools for request 
+                    management, project tracking, and financial reporting in a collaborative environment.
+                  </p>
+                </div>
+                
+                <div class="home-section">
+                  <h3>Key Features</h3>
+                  <ul>
+                    <li><strong>Request Management:</strong> Submit and track localization requests</li>
+                    <li><strong>Project Management:</strong> Monitor localization projects from start to finish</li>
+                    <li><strong>Financial Management:</strong> Track costs, quotes, and invoices</li>
+                    <li><strong>Team Collaboration:</strong> Connect business owners, project managers, LSPs, and procurement teams</li>
+                  </ul>
+                </div>
+                
+                <div class="home-section home-login-info">
+                  <h3>Getting Started</h3>
+                  <p>To access the platform features, please log in using the credentials provided by your administrator.</p>
                   
-                  <div class="account-card">
-                    <div class="account-type">Business Owner (BO)</div>
-                    <div class="account-creds">
-                      <span>Username: bo</span>
-                      <span>Password: bo123</span>
+                  <div class="demo-accounts">
+                    <h4>Demo Accounts</h4>
+                    <div class="account-card">
+                      <div class="account-type">Project Manager (PM)</div>
+                      <div class="account-creds">
+                        <span>Username: admin</span>
+                        <span>Password: admin123</span>
+                      </div>
+                      <div class="account-desc">Full access to all platform features</div>
                     </div>
-                    <div class="account-desc">Access to request and personal project management</div>
-                  </div>
-                  
-                  <div class="account-card">
-                    <div class="account-type">Finance Team (FT)</div>
-                    <div class="account-creds">
-                      <span>Username: ft</span>
-                      <span>Password: ft123</span>
+                    
+                    <div class="account-card">
+                      <div class="account-type">Business Owner (BO)</div>
+                      <div class="account-creds">
+                        <span>Username: bo</span>
+                        <span>Password: bo123</span>
+                      </div>
+                      <div class="account-desc">Access to request and personal project management</div>
                     </div>
-                    <div class="account-desc">Access to financial reports, quotes, and invoicing</div>
+                    
+                    <div class="account-card">
+                      <div class="account-type">Finance Team (FT)</div>
+                      <div class="account-creds">
+                        <span>Username: ft</span>
+                        <span>Password: ft123</span>
+                      </div>
+                      <div class="account-desc">Access to financial reports, quotes, and invoicing</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              <div class="home-section">
-                <h3>Contact Support</h3>
-                <p>
-                  For assistance with the platform, please contact our support team at:
-                  <a href="mailto:support@lingoflows.com">support@lingoflows.com</a>
-                </p>
+                
+                <div class="home-section">
+                  <h3>Contact Support</h3>
+                  <p>
+                    For assistance with the platform, please contact our support team at:
+                    <a href="mailto:support@lingoflows.com">support@lingoflows.com</a>
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <!-- 请求管理页面 -->
-          <div v-if="currentPage === 'request_management'">
-            <RequestForm />
-          </div>
-          
-          <!-- 项目管理页面 -->
-          <div v-if="currentPage === 'project_management'">
-            <ProjectManagement :userRole="userRole" :userId="userId" :projectData="projectData" />
-          </div>
-          
-          <!-- 财务管理页面 -->
-          <div v-if="currentPage === 'financial_management'">
-            <FinancialManagement :userRole="userRole" :userId="userId" />
-          </div>
-          
-          <!-- 系统设置页面 -->
-          <div v-if="currentPage === 'settings'">
-            <h1>System Settings</h1>
-            <p>System settings page is under development...</p>
-          </div>
-        </a-layout-content>
-        <a-layout-footer>
-          <div class="footer-content">
-            <p style="color: black;">© 2025 LingoFlows - Collaborative Localization Management Platform</p>
-            <p style="color: black;">Developed by Yizhuo Xiang</p>
-          </div>
-        </a-layout-footer>
+            
+            <!-- 请求管理页面 -->
+            <div v-if="currentPage === 'request_management'">
+              <RequestForm />
+            </div>
+            
+            <!-- 项目管理页面 -->
+            <div v-if="currentPage === 'project_management'">
+              <ProjectManagement :userRole="userRole" :userId="userId" :projectData="projectData" />
+            </div>
+            
+            <!-- 财务管理页面 -->
+            <div v-if="currentPage === 'financial_management'">
+              <FinancialManagement :userRole="userRole" :userId="userId" />
+            </div>
+            
+            <!-- 系统设置页面 -->
+            <div v-if="currentPage === 'settings'">
+              <h1>System Settings</h1>
+              <p>System settings page is under development...</p>
+            </div>
+          </a-layout-content>
+          <a-layout-footer>
+            <div class="footer-content">
+              <p style="color: black;">© 2025 LingoFlows - Collaborative Localization Management Platform</p>
+              <p style="color: black;">Developed by Yizhuo Xiang</p>
+            </div>
+          </a-layout-footer>
+        </a-layout>
       </a-layout>
     </a-layout>
 
@@ -242,7 +244,7 @@
 
     <!-- 返回顶部按钮 -->
     <a-back-top :style="{ position: 'absolute', right: '20px', bottom: '20px' }" />
-  </a-layout>
+  </a-config-provider>
 </template>
 
 <script>
@@ -263,6 +265,7 @@ import RequestForm from './components/RequestForm.vue';
 import ProjectManagement from './components/ProjectManagement.vue';
 import FinancialManagement from './components/FinancialManagement.vue';
 import axios from 'axios';
+import i18n from './utils/i18n';
 
 export default defineComponent({
   components: {
@@ -305,6 +308,7 @@ export default defineComponent({
     ]);
     const projectData = ref([]);
     const loginLoading = ref(false);
+    const locale = ref(i18n);
   
     // 检查用户是否有权限访问某个页面
     const hasPermission = (page) => {
@@ -605,20 +609,10 @@ export default defineComponent({
           projectData.value = processedData;
           console.log(`成功处理 ${projectData.value.length} 条项目数据`);
           
-          // 注释掉FT角色自动跳转到财务管理页面的代码
-          /* 
-          // 如果是FT角色且获取到了数据，检查是否需要切换到财务管理页面
-          if (userRole.value === 'FT' && projectData.value.length > 0) {
-            console.log('FT角色已获取项目数据，确保正确显示在财务管理页面');
-            currentPage.value = 'financial_management';
-            selectedMenuKey.value = '1_3';
-          }
-          */
         } else {
           console.error('返回的数据不是数组:', response.data);
           projectData.value = [];
           
-          // 如果是FT角色且没有获取到数据，尝试备用请求
           if (userRole.value === 'FT') {
             try {
               console.log('FT角色未获取到数据，尝试备用请求');
@@ -642,7 +636,7 @@ export default defineComponent({
       } catch (error) {
         console.error('Error fetching project data:', error);
         Message.error({
-          content: '获取项目数据失败，请刷新页面重试',
+          content: 'Failed to obtain project data, please refresh the page and try again',
           duration: 3000
         });
       }
@@ -700,6 +694,7 @@ export default defineComponent({
       loginLoading,
       userId,
       goToHome,
+      locale,
     };
   }
 });
