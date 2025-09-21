@@ -1,3 +1,5 @@
+![LingoFlows](imgs/LingoFlows_demo.jpg)
+
 ![LingoFlows](imgs/LIngoFlows_logo.jpg)
 
 # LingoFlows - Collaborative Localization Management Platform
